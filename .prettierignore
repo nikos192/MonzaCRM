@@ -1,0 +1,6 @@
+.next
+node_modules
+package-lock.json
+output
+.playwright-cli
+supabase/migrations
