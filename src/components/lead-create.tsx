@@ -1,7 +1,7 @@
 'use client';
 import { useCRM } from './store';
 import { Form, Modal, type Field } from './ui';
-import { SOURCES, fullName } from '@/lib/types';
+import { SOURCES, fullName, isLegacyFollowUpStage } from '@/lib/types';
 export function LeadCreate({ onClose }: { onClose: () => void }) {
   const { data, userId, mutate } = useCRM();
   const fields: Field[] = [
@@ -32,7 +32,9 @@ export function LeadCreate({ onClose }: { onClose: () => void }) {
       name: 'stage_id',
       label: 'Pipeline stage',
       type: 'select',
-      options: data.pipeline_stages.map((s) => ({ value: s.id, label: s.name })),
+      options: data.pipeline_stages
+        .filter((s) => !isLegacyFollowUpStage(s.name))
+        .map((s) => ({ value: s.id, label: s.name })),
       required: true,
     },
     {

@@ -62,6 +62,8 @@ export const schemas = {
       notes: text,
       last_contacted: optionalDate,
       vehicle_id: optionalId,
+      follow_up_step: z.coerce.number().int().min(0).max(3),
+      call_step: z.coerce.number().int().min(0).max(3),
     })
     .partial()
     .strict(),

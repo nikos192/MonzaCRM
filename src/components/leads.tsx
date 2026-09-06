@@ -11,7 +11,6 @@ import {
   Clock3,
   Phone,
   Mail,
-  Check,
   GripVertical,
   Sparkles,
 } from 'lucide-react';
@@ -29,7 +28,14 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useCRM } from './store';
 import { Avatar, Badge, Button, Empty } from './ui';
-import { fullName, vehicleName, money, quoteTotal, type Lead } from '@/lib/types';
+import {
+  fullName,
+  vehicleName,
+  money,
+  quoteTotal,
+  isLegacyFollowUpStage,
+  type Lead,
+} from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { dayKey } from '@/lib/analytics';
 export function LeadList({
@@ -100,11 +106,13 @@ export function LeadList({
             onChange={(e) => setStage(e.target.value)}
           >
             <option value="all">All stages</option>
-            {data.pipeline_stages.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
+            {data.pipeline_stages
+              .filter((s) => !isLegacyFollowUpStage(s.name))
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
           </select>
           <select
             aria-label="Filter by source"
@@ -254,8 +262,59 @@ export function LeadList({
     </div>
   );
 }
+function TouchDial({
+  label,
+  value,
+  tone,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  tone: 'follow' | 'call';
+  disabled?: boolean;
+  onChange: (value: number) => void;
+}) {
+  const change = (step: number) => onChange(value === step ? step - 1 : step);
+  return (
+    <div className={`touch-dial ${tone}`}>
+      <div className="dial-control">
+        <svg viewBox="0 0 40 40" aria-label={`${label}: ${value} of 3 complete`}>
+          <circle className="dial-track" cx="20" cy="20" r="15" pathLength="100" />
+          {[1, 2, 3].map((step, index) => (
+            <circle
+              key={step}
+              className={`dial-segment ${step <= value ? 'complete' : ''}`}
+              cx="20"
+              cy="20"
+              r="15"
+              pathLength="100"
+              transform={`rotate(${-90 + index * 120} 20 20)`}
+            />
+          ))}
+          <text x="20" y="22.5" textAnchor="middle">
+            {value}/3
+          </text>
+        </svg>
+        {[1, 2, 3].map((step) => (
+          <button
+            key={step}
+            className={`dial-button step-${step}`}
+            type="button"
+            disabled={disabled}
+            aria-label={`Set ${label.toLowerCase()} to ${step} of 3`}
+            aria-pressed={step <= value}
+            onClick={() => change(step)}
+          />
+        ))}
+      </div>
+      <span>{label}</span>
+    </div>
+  );
+}
 function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean }) {
   const { data, openLead, notify, mutate } = useCRM();
+  const [updating, setUpdating] = useState<'follow_up_step' | 'call_step' | null>(null);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
     disabled: overlay,
@@ -278,6 +337,29 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
       notify('Copied to clipboard.');
     } catch {
       notify('Clipboard unavailable. Open the lead to copy the detail.');
+    }
+  }
+  async function updateDial(field: 'follow_up_step' | 'call_step', value: number) {
+    setUpdating(field);
+    try {
+      const contacted = field === 'call_step' && value > (lead.call_step ?? 0);
+      const contactedStage = data.pipeline_stages.find((stage) => stage.name === 'Contacted');
+      await mutate({
+        action: 'save',
+        table: 'leads',
+        id: lead.id,
+        values: {
+          [field]: value,
+          ...(contacted ? { last_contacted: new Date().toISOString() } : {}),
+          ...(contacted && !lead.last_contacted && contactedStage
+            ? { stage_id: contactedStage.id }
+            : {}),
+        },
+      });
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Unable to update progress.');
+    } finally {
+      setUpdating(null);
     }
   }
   return (
@@ -320,6 +402,22 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
             : `Follow up ${new Date(f.due_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}`}
         </button>
       )}
+      <div className="touchpoint-dials">
+        <TouchDial
+          label="Follow-ups"
+          tone="follow"
+          value={lead.follow_up_step ?? 0}
+          disabled={overlay || updating !== null}
+          onChange={(value) => updateDial('follow_up_step', value)}
+        />
+        <TouchDial
+          label="Calls"
+          tone="call"
+          value={lead.call_step ?? 0}
+          disabled={overlay || updating !== null}
+          onChange={(value) => updateDial('call_step', value)}
+        />
+      </div>
       <div className="kanban-bottom">
         <span>
           {lead.last_contacted
@@ -347,27 +445,6 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
           <Mail size={13} />
         </button>
       </div>
-      <button
-        className="mark-contacted"
-        onClick={async () => {
-          try {
-            const s = data.pipeline_stages.find((s) => s.name === 'Contacted');
-            await mutate({
-              action: 'save',
-              table: 'leads',
-              id: lead.id,
-              values: {
-                last_contacted: new Date().toISOString(),
-                ...(!lead.last_contacted && s ? { stage_id: s.id } : {}),
-              },
-            });
-          } catch (e) {
-            notify(e instanceof Error ? e.message : 'Unable to update');
-          }
-        }}
-      >
-        <Check size={12} /> Mark contacted
-      </button>
     </article>
   );
 }
@@ -513,6 +590,7 @@ export function Pipeline({
         <div className="kanban-board">
           {[...data.pipeline_stages]
             .sort((a, b) => a.position - b.position)
+            .filter((s) => !isLegacyFollowUpStage(s.name))
             .filter((s) => terminal || !s.is_terminal)
             .map((s) => (
               <Column

@@ -17,7 +17,7 @@ import {
 import { useCRM } from './store';
 import { Avatar, Badge, Button, Empty, SectionHeading, TextLink } from './ui';
 import { analytics, dayKey } from '@/lib/analytics';
-import { money, fullName, vehicleName, orderPaid } from '@/lib/types';
+import { money, fullName, vehicleName, orderPaid, isLegacyFollowUpStage } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 export function Dashboard({
   navigate,
@@ -58,7 +58,7 @@ export function Dashboard({
   const max = Math.max(...points, 1);
   const poly = points.map((v, i) => `${24 + i * 45},${116 - (v / max) * 80}`).join(' ');
   const pipeline = data.pipeline_stages
-    .filter((s) => !s.is_terminal)
+    .filter((s) => !s.is_terminal && !isLegacyFollowUpStage(s.name))
     .sort((a, b) => a.position - b.position)
     .map((s) => ({ ...s, count: a.leads.filter((l) => l.stage_id === s.id).length }))
     .filter((s) => s.count);

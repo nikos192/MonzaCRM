@@ -137,6 +137,24 @@ test('pipeline drag persists a stage change and global search opens the record',
 }) => {
   await page.goto('/demo?view=pipeline');
   await expect(page.getByRole('heading', { name: 'Sales pipeline.' })).toBeVisible();
+  await expect(page.getByRole('region', { name: /^Follow-Up [123]$/ })).toHaveCount(0);
+  let touchpointCard = page
+    .locator('.kanban-card')
+    .filter({ has: page.getByRole('button', { name: 'Daniel Brooks', exact: true }) });
+  await touchpointCard.getByRole('button', { name: 'Set follow-ups to 3 of 3' }).click();
+  await touchpointCard.getByRole('button', { name: 'Set calls to 3 of 3' }).click();
+  await expect(
+    touchpointCard.locator('svg[aria-label="Follow-ups: 3 of 3 complete"]'),
+  ).toBeVisible();
+  await expect(touchpointCard.locator('svg[aria-label="Calls: 3 of 3 complete"]')).toBeVisible();
+  await page.reload();
+  touchpointCard = page
+    .locator('.kanban-card')
+    .filter({ has: page.getByRole('button', { name: 'Daniel Brooks', exact: true }) });
+  await expect(
+    touchpointCard.locator('svg[aria-label="Follow-ups: 3 of 3 complete"]'),
+  ).toBeVisible();
+  await expect(touchpointCard.locator('svg[aria-label="Calls: 3 of 3 complete"]')).toBeVisible();
   const card = page
     .locator('.kanban-card')
     .filter({ has: page.getByRole('button', { name: 'James Mitchell', exact: true }) });

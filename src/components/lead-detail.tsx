@@ -30,9 +30,11 @@ import {
   FOLLOW_TYPES,
   ORDER_STAGES,
   type FollowUp,
+  isLegacyFollowUpStage,
 } from '@/lib/types';
 import { dayKey } from '@/lib/analytics';
 import { addDays, formatDistanceToNow } from 'date-fns';
+import { MonzaLogo } from './logo';
 const asRecord = (v: unknown) => v as Record<string, unknown>;
 const textFields = (pairs: string[]) =>
   pairs.map((p) => {
@@ -692,6 +694,7 @@ export function LeadDetail() {
         >
           {[...data.pipeline_stages]
             .sort((a, b) => a.position - b.position)
+            .filter((s) => !isLegacyFollowUpStage(s.name))
             .map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -1014,9 +1017,7 @@ export function LeadDetail() {
                 <>
                   <div className="quote-document">
                     <div className="quote-doc-header">
-                      <span className="wordmark">
-                        MONZA<small>FORGED WHEELS</small>
-                      </span>
+                      <MonzaLogo />
                       <div>
                         <strong>QUOTATION</strong>
                         <span>{quote.id.slice(-8).toUpperCase()}</span>

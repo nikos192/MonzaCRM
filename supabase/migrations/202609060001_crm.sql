@@ -65,6 +65,8 @@ create table public.leads (
   priority text not null default 'Normal' check(priority in ('Low','Normal','High')),
   notes text not null default '',
   last_contacted timestamptz,
+  follow_up_step smallint not null default 0 check(follow_up_step between 0 and 3),
+  call_step smallint not null default 0 check(call_step between 0 and 3),
   archived_at timestamptz,
   foreign key(vehicle_id,customer_id) references vehicles(id,customer_id)
 );
@@ -462,15 +464,13 @@ insert into public.pipeline_stages(name,position,colour,is_terminal) values('New
 insert into public.pipeline_stages(name,position,colour,is_terminal) values('Contacted',1,'#5b84b4',false);
 insert into public.pipeline_stages(name,position,colour,is_terminal) values('Replied',2,'#a888ca',false);
 insert into public.pipeline_stages(name,position,colour,is_terminal) values('Quote Sent',3,'#c88a42',false);
-insert into public.pipeline_stages(name,position,colour,is_terminal) values('Follow-Up 1',4,'#c88a42',false);
-insert into public.pipeline_stages(name,position,colour,is_terminal) values('Follow-Up 2',5,'#c88a42',false);
-insert into public.pipeline_stages(name,position,colour,is_terminal) values('Deposit Paid',6,'#388675',false);
-insert into public.pipeline_stages(name,position,colour,is_terminal) values('In Production',7,'#5b84b4',false);
-insert into public.pipeline_stages(name,position,colour,is_terminal) values('Balance Due',8,'#c88a42',false);
-insert into public.pipeline_stages(name,position,colour,is_terminal) values('Paid',9,'#388675',false);
-insert into public.pipeline_stages(name,position,colour,is_terminal) values('Shipped',10,'#5b84b4',false);
-insert into public.pipeline_stages(name,position,colour,is_terminal) values('Completed',11,'#388675',true);
-insert into public.pipeline_stages(name,position,colour,is_terminal) values('Lost',12,'#8a8f98',true);
+insert into public.pipeline_stages(name,position,colour,is_terminal) values('Deposit Paid',4,'#388675',false);
+insert into public.pipeline_stages(name,position,colour,is_terminal) values('In Production',5,'#5b84b4',false);
+insert into public.pipeline_stages(name,position,colour,is_terminal) values('Balance Due',6,'#c88a42',false);
+insert into public.pipeline_stages(name,position,colour,is_terminal) values('Paid',7,'#388675',false);
+insert into public.pipeline_stages(name,position,colour,is_terminal) values('Shipped',8,'#5b84b4',false);
+insert into public.pipeline_stages(name,position,colour,is_terminal) values('Completed',9,'#388675',true);
+insert into public.pipeline_stages(name,position,colour,is_terminal) values('Lost',10,'#8a8f98',true);
 
 insert into public.settings(key,value) values
  ('lead_sources','["Website","Instagram","Facebook","SMS","Phone","Email","Referral","Marketplace","Walk-in","Other"]'),

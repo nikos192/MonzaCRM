@@ -29,6 +29,7 @@ import { LeadCreate } from './lead-create';
 import { LeadImport } from './lead-import';
 import { LeadDetail } from './lead-detail';
 import { FollowUps, Orders, Customers, Settings } from './screens';
+import { MonzaLogo } from './logo';
 const navigation = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'leads', label: 'Leads', icon: UsersRound },
@@ -130,10 +131,7 @@ function Shell({ initialSection }: { initialSection: string }) {
             navigate('dashboard');
           }}
         >
-          <span className="brand-symbol">Ⅲ</span>
-          <span className="wordmark">
-            MONZA<small>FORGED WHEELS</small>
-          </span>
+          <MonzaLogo />
         </a>
         <div className="workspace-switch">
           <div className="workspace-icon">M</div>

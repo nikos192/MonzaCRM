@@ -23,7 +23,7 @@ Demo availability is restricted to `next dev`, unless the server explicitly sets
 
 - Dashboard calculated from records: new enquiries, due/overdue follow-ups, open quote value, deposits, revenue less refunds, conversion, production, outstanding balances, ready/shipped/delivered orders, attention queue and activity.
 - Searchable/filterable lead table, reusable customer matching, editable contacts, vehicle details and enquiry notes.
-- Drag-and-drop pipeline with persistent optimistic stage changes, author/time audit and quick contact/follow-up actions. Stage selection in the lead workspace is the keyboard alternative.
+- Drag-and-drop pipeline with persistent optimistic stage changes and author/time audit. Each lead card has separate three-step follow-up and call dials; increasing the call dial records the contact time. Stage selection in the lead workspace is the keyboard alternative.
 - Lead workspace: Overview, Wheel Specs, Quote, Follow-Ups, Order, Files and Activity.
 - Structured staggered fitment, construction, dimensions, offsets, tyres, finishes, clearance and supplier/customer notes.
 - Quotes with discount/deposit validation and immutable revision history. Orders retain their agreed price even when the original quote is subsequently revised.
@@ -60,7 +60,7 @@ Production CRUD uses a session-scoped Supabase client and RLS. The service-role 
 
 1. Create a dedicated Supabase project in a suitable nearby region. Save its database password securely.
 2. Copy `.env.example` to `.env.local` and enter the project URL and publishable key. These identify the API; RLS protects the data.
-3. Apply `supabase/migrations/202609060001_crm.sql` using the SQL editor, or use the CLI workflow below. The migration runs in a transaction and creates the private `crm-files` bucket and its policies.
+3. Apply every SQL file in `supabase/migrations` in filename order using the SQL editor, or use the CLI workflow below. The migrations run in transactions and create the private `crm-files` bucket and its policies.
 4. In Authentication settings, disable public signup and configure password/security/rate-limit settings. Enable additional MFA controls according to your operational needs before relying on them; this MVP does not implement an MFA challenge screen.
 5. Create two Auth users in Supabase, one for Nikos and one for Max, with verified business email addresses and strong passwords. Set optional user metadata `display_name` to `Nikos` / `Max`. Their profiles are created automatically.
 6. Approve these exact accounts in SQL. Approval is deliberately unavailable to browser clients, preventing self-approval.
@@ -100,7 +100,7 @@ npx supabase db push
 
 For a fresh local Supabase stack, install Docker, run `npx supabase init` once, then `npx supabase start` and `npx supabase db reset`. The latter resets the local database; do not point a reset operation at a real customer environment. Hosted setup via SQL editor does not require Docker.
 
-The baseline migration is for a new CRM schema. Make future changes in new versioned migration files rather than re-running the baseline over an existing installation. Auth users already present are backfilled into profiles.
+The baseline migration is for a new CRM schema. Apply later versioned migrations once to existing installations rather than re-running the baseline. Auth users already present are backfilled into profiles.
 
 ## Environment variables
 

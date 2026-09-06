@@ -30,8 +30,6 @@ export function makeDemo(): Data {
       '#668aaa',
       '#a486ba',
       '#c0904c',
-      '#c0904c',
-      '#c0904c',
       '#4b9784',
       '#668aaa',
       '#c0904c',
@@ -40,7 +38,7 @@ export function makeDemo(): Data {
       '#4b9784',
       '#88909a',
     ][i],
-    is_terminal: i > 10,
+    is_terminal: i > 8,
   }));
   data.settings = [
     { ...row(150), key: 'lead_sources', value: SOURCES },
@@ -58,7 +56,7 @@ export function makeDemo(): Data {
       '2023',
       'Melbourne, VIC',
       'Referral',
-      7,
+      5,
       9400,
       12,
     ],
@@ -85,16 +83,16 @@ export function makeDemo(): Data {
       '2019',
       'Sydney, NSW',
       'Facebook',
-      8,
+      6,
       7600,
       22,
     ],
     ['Lucas', 'Hayes', 'Mazda', 'RX-7', 'FD', '1997', 'Adelaide, SA', 'Instagram', 1, 5400, 1],
     ['Noah', 'Reed', 'Audi', 'RS3', '8Y', '2024', 'Brisbane, QLD', 'Website', 0, 0, 0],
-    ['Liam', 'Parker', 'BMW', 'M4', 'F82', '2018', 'Melbourne, VIC', 'Referral', 6, 6100, 8],
-    ['Isabella', 'Rossi', 'BMW', 'M3', 'G80', '2023', 'Sydney, NSW', 'Instagram', 4, 7200, 5],
-    ['Jack', 'Wilson', 'Nissan', 'GT-R', 'R35', '2017', 'Gold Coast, QLD', 'Phone', 10, 8800, 28],
-    ['Mia', 'Sullivan', 'Audi', 'RS6', 'C8', '2023', 'Brisbane, QLD', 'Website', 11, 8600, 30],
+    ['Liam', 'Parker', 'BMW', 'M4', 'F82', '2018', 'Melbourne, VIC', 'Referral', 4, 6100, 8],
+    ['Isabella', 'Rossi', 'BMW', 'M3', 'G80', '2023', 'Sydney, NSW', 'Instagram', 3, 7200, 5],
+    ['Jack', 'Wilson', 'Nissan', 'GT-R', 'R35', '2017', 'Gold Coast, QLD', 'Phone', 8, 8800, 28],
+    ['Mia', 'Sullivan', 'Audi', 'RS6', 'C8', '2023', 'Brisbane, QLD', 'Website', 9, 8600, 30],
   ];
   people.forEach((p, i) => {
     const [first, last, make, model, chassis, year, location, source, stage, price, days] = p as [
@@ -148,6 +146,8 @@ export function makeDemo(): Data {
           ? 'Looking for a clean OEM+ fitment. Satin brushed finish with a subtle concave profile.'
           : 'Confirm fitment and finish before production.',
       last_contacted: stage === 0 ? null : stamp(Math.min(days, 3)),
+      follow_up_step: stage < 3 ? Math.min(stage, 2) : Math.min(3, (i % 3) + 1),
+      call_step: stage === 0 ? 0 : Math.min(3, (i % 3) + 1),
     };
     data.leads.push(l);
     data.wheel_specs.push({
@@ -173,7 +173,7 @@ export function makeDemo(): Data {
         discount: 0,
         shipping_included: true,
         deposit_required: price / 2,
-        status: stage >= 6 ? 'Accepted' : stage === 1 ? 'Draft' : 'Sent',
+        status: stage >= 4 ? 'Accepted' : stage === 1 ? 'Draft' : 'Sent',
         quote_date: stamp(days).slice(0, 10),
         expires_at: addDays(now, 14).toISOString().slice(0, 10),
         notes: 'Set of four custom forged wheels. Tyres excluded.',
@@ -197,19 +197,19 @@ export function makeDemo(): Data {
         staff_user: l.handled_by,
         status: 'Logged',
       });
-    if (stage >= 6 && stage !== 12) {
+    if (stage >= 4 && stage !== 10) {
       const oid = demoId(800 + i);
       data.orders.push({
         ...row(800 + i, days),
         lead_id: l.id,
         stage:
-          stage === 7
+          stage === 5
             ? 'In Production'
-            : stage === 8
+            : stage === 6
               ? 'Balance Due'
-              : stage === 10
+              : stage === 8
                 ? 'Shipped'
-                : stage === 11
+                : stage === 9
                   ? 'Delivered'
                   : 'Awaiting Render',
         final_price: price,
@@ -217,10 +217,10 @@ export function makeDemo(): Data {
         supplier_reference: `MZ-26-${1040 + i}`,
         estimated_completion: addDays(now, i === 2 ? 9 : 3).toISOString(),
         production_start: stamp(days - 2),
-        shipping_provider: stage >= 10 ? 'DHL Express' : '',
-        tracking_number: stage >= 10 ? `DEMO${900000 + i}` : '',
-        shipped_at: stage >= 10 ? stamp(3) : null,
-        delivered_at: stage === 11 ? stamp(1) : null,
+        shipping_provider: stage >= 8 ? 'DHL Express' : '',
+        tracking_number: stage >= 8 ? `DEMO${900000 + i}` : '',
+        shipped_at: stage >= 8 ? stamp(3) : null,
+        delivered_at: stage === 9 ? stamp(1) : null,
         notes: 'Confirm QC images before dispatch.',
       });
       data.payments.push({
@@ -234,7 +234,7 @@ export function makeDemo(): Data {
         status: 'Paid',
         notes: '',
       });
-      if (stage >= 10)
+      if (stage >= 8)
         data.payments.push({
           ...row(950 + i, 2),
           order_id: oid,
@@ -247,17 +247,17 @@ export function makeDemo(): Data {
           notes: '',
         });
     }
-    if (stage > 0 && stage < 9)
+    if (stage > 0 && stage < 7)
       data.follow_ups.push({
         ...row(1000 + i, days),
         lead_id: l.id,
-        type: stage >= 6 ? 'Render approval' : 'Quote follow-up',
+        type: stage >= 4 ? 'Render approval' : 'Quote follow-up',
         due_at: addDays(
           now,
           i === 0 || i === 5 ? -1 : i === 3 || i === 4 ? 0 : i === 8 ? 1 : 3,
         ).toISOString(),
         notes:
-          stage >= 6
+          stage >= 4
             ? 'Check in on production and customer approval.'
             : 'Check if they have any questions about the quote.',
         status: 'Open',
@@ -360,6 +360,8 @@ export function applyDemoMutation(original: Data, m: Mutation, userId: string): 
       priority: String(v.priority),
       notes: String(v.notes),
       last_contacted: null,
+      follow_up_step: 0,
+      call_step: 0,
     };
     data.leads.unshift(lead);
     audit('leads', lead.id, 'created', {}, lead);

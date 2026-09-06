@@ -40,6 +40,8 @@ export type Lead = Row & {
   priority: string;
   notes: string;
   last_contacted: string | null;
+  follow_up_step: number;
+  call_step: number;
 };
 export type WheelSpec = Row & {
   lead_id: string;
@@ -195,8 +197,6 @@ export const STAGES = [
   'Contacted',
   'Replied',
   'Quote Sent',
-  'Follow-Up 1',
-  'Follow-Up 2',
   'Deposit Paid',
   'In Production',
   'Balance Due',
@@ -205,6 +205,8 @@ export const STAGES = [
   'Completed',
   'Lost',
 ];
+export const isLegacyFollowUpStage = (name: string) =>
+  /^(?:Legacy )?Follow[- ]?Up [123]$/i.test(name);
 export const ORDER_STAGES = [
   'Deposit Paid',
   'Awaiting Render',

@@ -55,13 +55,14 @@ Audit metadata deliberately retains previous and new business values to make cha
 
 ## Automated verification
 
-`npm test` executes the actual baseline migration in PGlite PostgreSQL, with representative `auth.users`, `auth.uid()`, `storage.objects`, buckets and anon/authenticated/service roles. It verifies:
+`npm test` executes every migration in PGlite PostgreSQL, with representative `auth.users`, `auth.uid()`, `storage.objects`, buckets and anon/authenticated/service roles. It verifies:
 
 - Every table has RLS; anonymous grants are removed.
 - Unapproved accounts cannot read customer data, insert records, self-approve or forge audit events.
 - Approved CRUD, immediately effective revocation and restored approval.
 - Transaction rollback, customer matching, stage history, quote revisions and immutable audit records.
 - Follow-up identity stamping and deposit-to-order conversion, including duplicate conversion rejection.
+- Follow-up and call dial constraints, plus removal of live Follow-Up pipeline stages.
 - Overpayment rejection, fixed order price, balance-gated shipping and required tracking/date fields.
 - Private bucket state and storage object policy enforcement for approved/unapproved callers.
 - Service-only rate limiting and idempotent website intake.

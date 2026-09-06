@@ -17,6 +17,7 @@ import {
 import { useCRM } from './store';
 import { Avatar, Badge, Button, Empty, Form, Modal, SectionHeading, type Field } from './ui';
 import { FollowForm } from './lead-detail';
+import { MonzaLogo } from './logo';
 import {
   type FollowUp,
   type Supplier,
@@ -25,6 +26,7 @@ import {
   vehicleName,
   money,
   orderPaid,
+  isLegacyFollowUpStage,
 } from '@/lib/types';
 import { dayKey, analytics } from '@/lib/analytics';
 import { addDays } from 'date-fns';
@@ -616,9 +618,7 @@ export function Settings() {
           {tab === 'General' && (
             <>
               <div className="settings-brand">
-                <span className="wordmark">
-                  MONZA<small>FORGED WHEELS</small>
-                </span>
+                <MonzaLogo />
                 <Badge tone={demo ? 'amber' : 'green'}>
                   {demo ? 'Development demo' : 'Private workspace'}
                 </Badge>
@@ -683,6 +683,7 @@ export function Settings() {
               </p>
               {[...data.pipeline_stages]
                 .sort((a, b) => a.position - b.position)
+                .filter((s) => !isLegacyFollowUpStage(s.name))
                 .map((s) => (
                   <button className="stage-setting" key={s.id} onClick={() => stage(s)}>
                     <span className="stage-position">

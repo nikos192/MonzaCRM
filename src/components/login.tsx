@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, LockKeyhole, ShieldCheck, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Button } from './ui';
+import { MonzaLogo } from './logo';
 export function Login({ demo, configured }: { demo: boolean; configured: boolean }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,10 +16,7 @@ export function Login({ demo, configured }: { demo: boolean; configured: boolean
     <main className="login-page">
       <section className="login-brand-panel">
         <Link href="/login" className="brand">
-          <span className="brand-symbol">Ⅲ</span>
-          <span className="wordmark">
-            MONZA<small>FORGED WHEELS</small>
-          </span>
+          <MonzaLogo />
         </Link>
         <div className="login-editorial">
           <span className="eyebrow">THE DETAILS MAKE THE DIFFERENCE.</span>

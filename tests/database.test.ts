@@ -31,6 +31,7 @@ beforeAll(async () => {
  grant all on storage.objects to anon,authenticated,service_role;
  `);
   await db.exec(readFileSync('supabase/migrations/202609060001_crm.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/202609060002_touchpoint_dials.sql', 'utf8'));
   await db.query('insert into auth.users(id,email) values($1,$2),($3,$4)', [
     approved,
     'nikos@example.com',
@@ -100,6 +101,25 @@ describe('actual PostgreSQL migration, RLS and transactional workflows', () => {
     ]);
     expect(await scalar<number>('select count(*)::int value from public.customers')).toBe(1);
     expect(await scalar<number>('select count(*)::int value from public.vehicles')).toBe(2);
+  });
+  it('uses three-step lead touchpoint counters without follow-up pipeline stages', async () => {
+    expect(
+      await scalar<number>(
+        "select count(*)::int value from public.pipeline_stages where name ~* '^Follow[- ]?Up [123]$'",
+      ),
+    ).toBe(0);
+    await db.query('update public.leads set follow_up_step=3,call_step=2 where id=$1', [leadId]);
+    expect(
+      await scalar<number>('select follow_up_step::int value from public.leads where id=$1', [
+        leadId,
+      ]),
+    ).toBe(3);
+    expect(
+      await scalar<number>('select call_step::int value from public.leads where id=$1', [leadId]),
+    ).toBe(2);
+    await expect(
+      db.query('update public.leads set call_step=4 where id=$1', [leadId]),
+    ).rejects.toThrow();
   });
   it('rolls back customer and vehicle if lead creation fails', async () => {
     const before = await scalar<number>('select count(*)::int value from public.customers');
