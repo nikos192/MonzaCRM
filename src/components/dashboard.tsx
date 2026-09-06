@@ -12,6 +12,7 @@ import {
   CircleDot,
   Package,
   ArrowRight,
+  Sparkles,
 } from 'lucide-react';
 import { useCRM } from './store';
 import { Avatar, Badge, Button, Empty, SectionHeading, TextLink } from './ui';
@@ -21,9 +22,11 @@ import { formatDistanceToNow } from 'date-fns';
 export function Dashboard({
   navigate,
   onNew,
+  onImport,
 }: {
   navigate: (v: string) => void;
   onNew: () => void;
+  onImport?: () => void;
 }) {
   const { data, userId, openLead } = useCRM();
   const a = analytics(data);
@@ -115,6 +118,11 @@ export function Dashboard({
                 timeZone: 'Australia/Brisbane',
               }).format(now)}
             </span>
+            {onImport && (
+              <Button variant="secondary" onClick={onImport}>
+                <Sparkles size={15} /> Import leads
+              </Button>
+            )}
             <Button onClick={onNew}>
               <Plus size={16} /> New lead
             </Button>

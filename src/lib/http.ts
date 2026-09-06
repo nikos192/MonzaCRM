@@ -1,7 +1,7 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-class RequestError extends Error {
+export class RequestError extends Error {
   constructor(
     message: string,
     public status: number,

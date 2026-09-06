@@ -20,6 +20,11 @@ test('private pages and APIs never expose demo data without authentication', asy
   expect(file.ok()).toBe(false);
   const intake = await request.post('/api/leads/intake', { data: { first_name: 'Anonymous' } });
   expect([401, 503]).toContain(intake.status());
+  const aiImport = await request.post('/api/ai/leads', {
+    headers: { Origin: 'http://localhost:3000' },
+    data: { action: 'parse', text: 'Example lead with enough text' },
+  });
+  expect(aiImport.status()).toBe(401);
 });
 test('complete enquiry, quote, follow-up, deposit, payment and shipping workflow persists', async ({
   page,

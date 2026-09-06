@@ -3,6 +3,7 @@ import { makeDemo, applyDemoMutation, demoId } from '../src/lib/demo';
 import { validateMutation, intakeInput } from '../src/lib/validation';
 import { analytics, dayKey } from '../src/lib/analytics';
 import { orderPaid, quoteTotal } from '../src/lib/types';
+import { importLeadSchema, parsedLeadsSchema } from '../src/lib/lead-import';
 describe('CRM business workflow', () => {
   it('creates a lead, matching contact details without overwriting a customer', () => {
     const data = makeDemo(),
@@ -140,6 +141,29 @@ describe('CRM business workflow', () => {
   });
 });
 describe('untrusted input validation', () => {
+  it('validates AI-extracted lead batches before import', () => {
+    const lead = {
+      first_name: 'Jane',
+      last_name: 'Driver',
+      email: 'jane@example.com',
+      phone: '',
+      instagram: '',
+      location: 'Brisbane',
+      preferred_contact: 'Email' as const,
+      make: 'BMW',
+      model: 'M4',
+      year: '2024',
+      chassis: 'G82',
+      notes: 'Meta form enquiry',
+      confidence: 'high' as const,
+    };
+    expect(parsedLeadsSchema.parse({ leads: [lead], warnings: [] }).leads).toHaveLength(1);
+    const { confidence, ...importable } = lead;
+    void confidence;
+    expect(importLeadSchema.parse(importable).first_name).toBe('Jane');
+    expect(() => importLeadSchema.parse({ ...importable, email: '', phone: '' })).toThrow();
+    expect(() => importLeadSchema.parse({ ...importable, make: '' })).toThrow();
+  });
   it('rejects arbitrary tables, privileged fields and actor spoofing', () => {
     expect(() =>
       validateMutation({ action: 'save', table: 'approved_users', values: { user_id: demoId(1) } }),

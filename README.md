@@ -104,14 +104,16 @@ The baseline migration is for a new CRM schema. Make future changes in new versi
 
 ## Environment variables
 
-| Variable                               | Required for                    | Scope                                             |
-| -------------------------------------- | ------------------------------- | ------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`             | Private CRM                     | Public project URL                                |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Private CRM                     | Public key, safe only with tested RLS             |
-| `SUPABASE_SECRET_KEY`                  | Website intake, seed script     | **Server only; never public or browser-prefixed** |
-| `LEAD_INTAKE_SECRET`                   | Website intake                  | Server only, at least 32 characters               |
-| `ENABLE_DEMO`                          | Optional deployed demonstration | Server; default false                             |
-| `ALLOW_DEVELOPMENT_SEED`               | Seed script safety guard        | Must explicitly equal `true`                      |
+| Variable                               | Required for                     | Scope                                             |
+| -------------------------------------- | -------------------------------- | ------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`             | Private CRM                      | Public project URL                                |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Private CRM                      | Public key, safe only with tested RLS             |
+| `SUPABASE_SECRET_KEY`                  | Website intake, seed script      | **Server only; never public or browser-prefixed** |
+| `LEAD_INTAKE_SECRET`                   | Website intake                   | Server only, at least 32 characters               |
+| `OPENAI_API_KEY`                       | Assisted lead importer           | **Server only; never browser-prefixed**           |
+| `OPENAI_MODEL`                         | Optional importer model override | Server; defaults to `gpt-5.4-mini`                |
+| `ENABLE_DEMO`                          | Optional deployed demonstration  | Server; default false                             |
+| `ALLOW_DEVELOPMENT_SEED`               | Seed script safety guard         | Must explicitly equal `true`                      |
 
 The app validates any supplied Supabase pair and the intake secret at server startup. With neither Supabase value supplied, only the setup/login screen and explicitly enabled demo are available. Auth and write APIs fail closed. Never commit `.env.local`, passwords, service keys or test credentials.
 
@@ -170,6 +172,12 @@ Content-Type: application/json
 - The website server should additionally rate-limit its own public form and use CAPTCHA if needed. Add hosting-edge limits for floods of invalid credentials before this endpoint reaches the database.
 
 Email/phone canonicalisation handles case, spacing and phone punctuation. It does not infer every international phone prefix equivalence, and ambiguous existing matches need operator cleanup.
+
+## Assisted lead import
+
+Approved staff can use **Import leads** from the dashboard or Leads page to paste up to 25 copied Meta lead-form results. The authenticated server sends the bounded text to the OpenAI Responses API with Structured Outputs and `store: false`, validates the returned fields, and presents every record for editing before save. The model has no database tools or credentials. Confirmed records are created through the existing database function in the **New Lead** stage with source **Facebook**, and existing customers are matched by email or phone.
+
+Set `OPENAI_API_KEY` in Vercel Production and Preview to enable parsing. `OPENAI_MODEL` is optional. Missing configuration fails closed with a clear message; it does not affect ordinary CRM use.
 
 ## Messaging, AI and payments
 

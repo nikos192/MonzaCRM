@@ -35,6 +35,8 @@ The publishable key is public by design and requires tested RLS. The secret key 
 
 The website endpoint authenticates a server-side bearer secret using constant-time digest comparison. It validates a honeypot and payload, and uses an atomic PostgreSQL counter (30 authenticated requests/minute globally). It fails closed if limiting fails. The service-only intake RPC makes request UUIDs idempotent. Website-side per-client limits/CAPTCHA and edge protection for invalid-secret floods remain external deployment responsibilities. Intake failure logging omits customer payloads and secrets.
 
+The assisted importer requires an approved CRM session and same-origin request. Its OpenAI key remains server-only. Pasted text is bounded to 30 KB, limited to 10 parsing requests per approved user per minute, sent with `store: false`, and constrained to a strict structured schema. Model output is treated as untrusted, validated again by the server, and shown for human review before database writes. The model receives no database credentials or tools.
+
 ## Storage
 
 `crm-files` is private. Storage object policies require current approved membership for read/create/delete. Metadata carries lead/customer/order linkage and database-generated uploader identity. The server checks object size, allowed MIME types and signatures (JPEG/PNG/WebP/PDF); the bucket also constrains type/size. Maximum 4 MiB accommodates Vercel function request limits.

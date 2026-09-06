@@ -13,6 +13,7 @@ import {
   Mail,
   Check,
   GripVertical,
+  Sparkles,
 } from 'lucide-react';
 import {
   DndContext,
@@ -33,9 +34,11 @@ import { formatDistanceToNow } from 'date-fns';
 import { dayKey } from '@/lib/analytics';
 export function LeadList({
   onNew,
+  onImport,
   navigate,
 }: {
   onNew: () => void;
+  onImport?: () => void;
   navigate: (v: string) => void;
 }) {
   const { data, openLead } = useCRM();
@@ -69,9 +72,16 @@ export function LeadList({
           </h1>
           <p>Your next customers, all in one place.</p>
         </div>
-        <Button onClick={onNew}>
-          <Plus size={16} /> New lead
-        </Button>
+        <div className="heading-actions">
+          {onImport && (
+            <Button variant="secondary" onClick={onImport}>
+              <Sparkles size={15} /> Import leads
+            </Button>
+          )}
+          <Button onClick={onNew}>
+            <Plus size={16} /> New lead
+          </Button>
+        </div>
       </div>
       <div className="panel">
         <div className="table-toolbar">

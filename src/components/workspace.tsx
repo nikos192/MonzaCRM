@@ -26,6 +26,7 @@ import { Avatar, Button, Empty, Modal } from './ui';
 import { Dashboard } from './dashboard';
 import { LeadList, Pipeline } from './leads';
 import { LeadCreate } from './lead-create';
+import { LeadImport } from './lead-import';
 import { LeadDetail } from './lead-detail';
 import { FollowUps, Orders, Customers, Settings } from './screens';
 const navigation = [
@@ -62,6 +63,7 @@ function Shell({ initialSection }: { initialSection: string }) {
   const [search, setSearch] = useState(false);
   const [query, setQuery] = useState('');
   const [newLead, setNewLead] = useState(false);
+  const [importLeads, setImportLeads] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [notifications, setNotifications] = useState(false);
   const [account, setAccount] = useState(false);
@@ -239,9 +241,17 @@ function Shell({ initialSection }: { initialSection: string }) {
           </div>
         </header>
         {section === 'dashboard' ? (
-          <Dashboard navigate={navigate} onNew={() => setNewLead(true)} />
+          <Dashboard
+            navigate={navigate}
+            onNew={() => setNewLead(true)}
+            onImport={demo ? undefined : () => setImportLeads(true)}
+          />
         ) : section === 'leads' ? (
-          <LeadList navigate={navigate} onNew={() => setNewLead(true)} />
+          <LeadList
+            navigate={navigate}
+            onNew={() => setNewLead(true)}
+            onImport={demo ? undefined : () => setImportLeads(true)}
+          />
         ) : section === 'pipeline' ? (
           <Pipeline navigate={navigate} onNew={() => setNewLead(true)} />
         ) : section === 'follow-ups' ? (
@@ -266,6 +276,7 @@ function Shell({ initialSection }: { initialSection: string }) {
       </div>
       {selected && <LeadDetail key={selected} />}{' '}
       {newLead && <LeadCreate onClose={() => setNewLead(false)} />}{' '}
+      {importLeads && <LeadImport onClose={() => setImportLeads(false)} />}{' '}
       {search && (
         <Modal
           title="Find anything."

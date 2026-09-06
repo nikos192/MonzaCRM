@@ -8,5 +8,7 @@ export async function register() {
     if (url || key) supabaseEnv();
     if (process.env.LEAD_INTAKE_SECRET && process.env.LEAD_INTAKE_SECRET.length < 32)
       throw new Error('LEAD_INTAKE_SECRET must contain at least 32 characters.');
+    if (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('sk-'))
+      throw new Error('OPENAI_API_KEY does not look like a valid server API key.');
   }
 }
