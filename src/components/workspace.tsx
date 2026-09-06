@@ -106,6 +106,7 @@ function Shell({ initialSection }: { initialSection: string }) {
   }
   const title = navigation.find((n) => n.key === section)?.label ?? 'Settings';
   const results = data.leads
+    .filter((lead) => !lead.archived_at)
     .map((l) => {
       const c = data.customers.find((c) => c.id === l.customer_id),
         v = data.vehicles.find((v) => v.id === l.vehicle_id),
@@ -320,7 +321,6 @@ function Shell({ initialSection }: { initialSection: string }) {
                     <strong>{fullName(r.customer)}</strong>
                     <span>
                       {vehicleName(r.vehicle)} · {r.lead.source}
-                      {r.lead.archived_at ? ' · Archived' : ''}
                     </span>
                   </div>
                   <ArrowUpRight size={16} />

@@ -35,6 +35,12 @@ beforeAll(async () => {
   await db.exec(
     readFileSync('supabase/migrations/202609060003_restore_follow_up_progress.sql', 'utf8'),
   );
+  await db.exec(
+    readFileSync(
+      'supabase/migrations/202609060004_safe_customer_matching_and_hard_delete.sql',
+      'utf8',
+    ),
+  );
   await db.query('insert into auth.users(id,email) values($1,$2),($3,$4)', [
     approved,
     'nikos@example.com',
@@ -104,6 +110,43 @@ describe('actual PostgreSQL migration, RLS and transactional workflows', () => {
     ]);
     expect(await scalar<number>('select count(*)::int value from public.customers')).toBe(1);
     expect(await scalar<number>('select count(*)::int value from public.vehicles')).toBe(2);
+  });
+  it('keeps first-name-only leads with unusable phone placeholders as separate customers', async () => {
+    const stage = await scalar<string>(
+      "select id value from public.pipeline_stages where name='New Lead'",
+    );
+    const first = await scalar<string>('select public.create_lead($1::jsonb) value', [
+      JSON.stringify({
+        first_name: 'Alpha',
+        phone: 'N/A',
+        make: 'Ford',
+        model: 'Falcon',
+        stage_id: stage,
+      }),
+    ]);
+    const second = await scalar<string>('select public.create_lead($1::jsonb) value', [
+      JSON.stringify({
+        first_name: 'Bravo',
+        phone: 'N/A',
+        make: 'Toyota',
+        model: 'Supra',
+        stage_id: stage,
+      }),
+    ]);
+    const pairings = await db.query<{ first_name: string; make: string }>(
+      `select customer.first_name,vehicle.make
+       from public.leads lead
+       join public.customers customer on customer.id=lead.customer_id
+       join public.vehicles vehicle on vehicle.id=lead.vehicle_id
+       where lead.id in ($1,$2)
+       order by customer.first_name`,
+      [first, second],
+    );
+    expect(pairings.rows).toEqual([
+      { first_name: 'Alpha', make: 'Ford' },
+      { first_name: 'Bravo', make: 'Toyota' },
+    ]);
+    await db.query('select public.delete_lead($1),public.delete_lead($2)', [first, second]);
   });
   it('uses three-step lead touchpoint counters without follow-up pipeline stages', async () => {
     expect(
@@ -317,5 +360,38 @@ describe('actual PostgreSQL migration, RLS and transactional workflows', () => {
     ]);
     expect(first).toBe(second);
     expect(await scalar<number>('select count(*)::int value from public.intake_requests')).toBe(1);
+  });
+  it('permanently deletes a lead and all dependent business records', async () => {
+    await identity('authenticated', approved);
+    const vehicleId = await scalar<string>(
+      'select vehicle_id value from public.leads where id=$1',
+      [leadId],
+    );
+    await db.query('select public.delete_lead($1)', [leadId]);
+    expect(
+      await scalar<number>('select count(*)::int value from public.leads where id=$1', [leadId]),
+    ).toBe(0);
+    expect(
+      await scalar<number>('select count(*)::int value from public.vehicles where id=$1', [
+        vehicleId,
+      ]),
+    ).toBe(0);
+    expect(
+      await scalar<number>('select count(*)::int value from public.quotes where id=$1', [quoteId]),
+    ).toBe(0);
+    expect(
+      await scalar<number>('select count(*)::int value from public.orders where id=$1', [orderId]),
+    ).toBe(0);
+    expect(
+      await scalar<number>('select count(*)::int value from public.payments where order_id=$1', [
+        orderId,
+      ]),
+    ).toBe(0);
+    expect(
+      await scalar<number>(
+        'select count(*)::int value from public.activity_logs where entity_id=$1',
+        [leadId],
+      ),
+    ).toBe(0);
   });
 });

@@ -33,6 +33,60 @@ describe('CRM business workflow', () => {
     expect(next.vehicles).toHaveLength(data.vehicles.length + 1);
     expect(next.customers[0].notes).toBe(c.notes);
   });
+  it('does not merge different leads whose phone values contain no usable digits', () => {
+    const data = makeDemo();
+    const base = {
+      last_name: '',
+      email: '',
+      phone: 'N/A',
+      location: '',
+      preferred_contact: 'Instagram',
+      notes: '',
+      year: '',
+      chassis: '',
+      source: 'Facebook',
+      priority: 'Normal',
+      handled_by: demoId(1),
+      stage_id: demoId(100),
+    };
+    const first = applyDemoMutation(
+      data,
+      validateMutation({
+        action: 'create_lead',
+        values: { ...base, first_name: 'Alpha', instagram: 'alpha', make: 'Ford', model: 'Falcon' },
+      }),
+      demoId(1),
+    );
+    const second = applyDemoMutation(
+      first,
+      validateMutation({
+        action: 'create_lead',
+        values: {
+          ...base,
+          first_name: 'Bravo',
+          instagram: 'bravo',
+          make: 'Toyota',
+          model: 'Supra',
+        },
+      }),
+      demoId(1),
+    );
+    const alpha = second.leads.find(
+      (lead) =>
+        second.customers.find((customer) => customer.id === lead.customer_id)?.first_name ===
+        'Alpha',
+    );
+    const bravo = second.leads.find(
+      (lead) =>
+        second.customers.find((customer) => customer.id === lead.customer_id)?.first_name ===
+        'Bravo',
+    );
+    expect(alpha?.customer_id).not.toBe(bravo?.customer_id);
+    expect(second.vehicles.find((vehicle) => vehicle.id === alpha?.vehicle_id)?.make).toBe('Ford');
+    expect(second.vehicles.find((vehicle) => vehicle.id === bravo?.vehicle_id)?.make).toBe(
+      'Toyota',
+    );
+  });
   it('edits leads and audits who moved their stage', () => {
     const d = makeDemo();
     const n = applyDemoMutation(

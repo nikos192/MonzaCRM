@@ -191,7 +191,7 @@ export type Mutation =
   | { action: 'save'; table: string; id?: string; values: Record<string, unknown> }
   | { action: 'create_lead'; values: Record<string, unknown> }
   | { action: 'convert'; lead_id: string; amount: number; reference: string }
-  | { action: 'archive'; table: 'leads' | 'customers' | 'orders'; id: string };
+  | { action: 'delete_lead'; id: string };
 export const STAGES = [
   'New Lead',
   'Contacted',

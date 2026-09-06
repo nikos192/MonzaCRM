@@ -17,7 +17,7 @@
 
 Lead creation and order conversion are database transactions. Customer matching is serialised for this low-volume workspace. Lead vehicle/customer consistency is enforced by a composite foreign key. One order and one current quote per lead are enforced with unique constraints; historical quote revisions are separate immutable records. Orders retain a fixed agreed price and cannot be reassigned to a different lead. Payments lock their order before checking net receipts against its price. Shipping requires a fully recorded balance plus tracking/provider/date; delivery requires a delivery date.
 
-Important records use archive timestamps; normal clients have no hard-delete privilege on them. Files have an explicit confirmed removal path. Both approved users may archive records. Archiving does not destroy the customer/order history.
+Lead deletion requires an approved session and an explicit confirmation. A restricted database function removes the lead and its linked vehicle, follow-ups, quote, order, payments, files and history in dependency order; it removes the customer only when no other lead or vehicle still uses that customer. Storage objects are removed before their metadata. Customer and order tables retain legacy archive columns, but the lead UI no longer archives records.
 
 ## API and session protections
 

@@ -34,9 +34,9 @@ Demo availability is restricted to `next dev`, unless the server explicitly sets
 - Payment and refund records; reconcile pending/failed records using Edit payment. No payment processing or payment credentials.
 - Private image/PDF uploads, short-lived signed downloads and confirmed removal. File upload is disabled in demo mode.
 - Customer garage, previous enquiries/orders and lifetime net payments; existing histories open into their lead workspace.
-- Global search across names, contact details, Instagram, vehicles, registrations, lead/order IDs, tracking and supplier references; includes archived enquiries.
+- Global search across names, contact details, Instagram, vehicles, registrations, lead/order IDs, tracking and supplier references.
 - Configurable stage names/colours/sort positions, lead sources, follow-up types and suppliers.
-- Responsive desktop/tablet/mobile layouts, accessible forms, modal focus management, errors, loading, empty states and archive confirmations.
+- Responsive desktop/tablet/mobile layouts, accessible forms, modal focus management, errors, loading, empty states and permanent-delete confirmations.
 
 ## Stack and structure
 

@@ -27,14 +27,19 @@ export async function POST(request: Request) {
         p_amount: m.amount,
         p_reference: m.reference,
       });
-    else if (m.action === 'archive')
-      result = await db
-        .from(m.table)
-        .update({ archived_at: new Date().toISOString() })
-        .eq('id', m.id)
-        .select('id')
-        .single();
-    else {
+    else if (m.action === 'delete_lead') {
+      const { data: attachments, error: attachmentError } = await db
+        .from('attachments')
+        .select('storage_path')
+        .eq('lead_id', m.id);
+      if (attachmentError) throw attachmentError;
+      const paths = (attachments ?? []).map((attachment) => attachment.storage_path);
+      if (paths.length) {
+        const { error: storageError } = await db.storage.from('crm-files').remove(paths);
+        if (storageError) throw storageError;
+      }
+      result = await db.rpc('delete_lead', { p_lead_id: m.id });
+    } else {
       if (['leads', 'orders'].includes(m.table) && !m.id)
         return NextResponse.json(
           { error: 'Use lead creation or deposit conversion.' },

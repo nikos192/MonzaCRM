@@ -218,8 +218,7 @@ export const mutationInput = z.discriminatedUnion('action', [
     .strict(),
   z
     .object({
-      action: z.literal('archive'),
-      table: z.enum(['leads', 'customers', 'orders']),
+      action: z.literal('delete_lead'),
       id: uuid,
     })
     .strict(),

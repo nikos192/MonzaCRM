@@ -417,7 +417,7 @@ export function LeadDetail() {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [follow, setFollow] = useState(false);
   const [deposit, setDeposit] = useState(false);
-  const [archive, setArchive] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const lead = data.leads.find((l) => l.id === selected);
   if (!lead) return null;
   const customer = data.customers.find((c) => c.id === lead.customer_id),
@@ -789,9 +789,9 @@ export function LeadDetail() {
             <strong>{quote ? money(quoteTotal(quote)) : 'Not quoted'}</strong>
             <small>{quote?.shipping_included ? 'Shipping included' : 'AUD'}</small>
           </div>
-          <button className="archive-link" onClick={() => setArchive(true)}>
+          <button className="archive-link" onClick={() => setDeleting(true)}>
             <Trash2 size={13} />
-            Archive lead
+            Delete lead
           </button>
         </aside>
         <main className="detail-content" role="tabpanel">
@@ -1332,14 +1332,14 @@ export function LeadDetail() {
           />
         </Modal>
       )}
-      {archive && (
+      {deleting && (
         <Modal
-          title="Archive this enquiry?"
-          subtitle="The customer history, quote and order will be preserved. The lead will leave the active pipeline."
-          onClose={() => setArchive(false)}
+          title="Permanently delete this lead?"
+          subtitle="This removes the enquiry, vehicle, follow-ups, quote, order, payments, files and history. This cannot be undone."
+          onClose={() => setDeleting(false)}
         >
           <div className="modal-footer">
-            <Button variant="secondary" onClick={() => setArchive(false)}>
+            <Button variant="secondary" onClick={() => setDeleting(false)}>
               Cancel
             </Button>
             <Button
@@ -1347,15 +1347,15 @@ export function LeadDetail() {
               disabled={busy}
               onClick={async () => {
                 try {
-                  await mutate({ action: 'archive', table: 'leads', id: lead.id });
-                  setArchive(false);
+                  await mutate({ action: 'delete_lead', id: lead.id });
+                  setDeleting(false);
                   closeLead();
                 } catch (e) {
-                  notify(e instanceof Error ? e.message : 'Archive failed.');
+                  notify(e instanceof Error ? e.message : 'Delete failed.');
                 }
               }}
             >
-              Archive lead
+              Delete permanently
             </Button>
           </div>
         </Modal>

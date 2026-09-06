@@ -396,7 +396,7 @@ export function Customers() {
         .includes(query.toLowerCase()),
   );
   const current = data.customers.find((c) => c.id === selected);
-  const leads = data.leads.filter((l) => l.customer_id === selected);
+  const leads = data.leads.filter((l) => l.customer_id === selected && !l.archived_at);
   const orders = data.orders.filter((o) => leads.some((l) => l.id === o.lead_id));
   return (
     <div className="page">
@@ -504,7 +504,6 @@ export function Customers() {
                   <strong>{vehicleName(data.vehicles.find((v) => v.id === l.vehicle_id))}</strong>
                   <span>
                     {new Date(l.created_at).toLocaleDateString('en-AU')} · {l.source}
-                    {l.archived_at ? ' · Archived' : ''}
                   </span>
                 </div>
                 <Badge>{data.pipeline_stages.find((s) => s.id === l.stage_id)?.name}</Badge>

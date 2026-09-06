@@ -2,6 +2,7 @@
 import { useCRM } from './store';
 import { Form, Modal, type Field } from './ui';
 import { SOURCES, fullName, isLegacyFollowUpStage } from '@/lib/types';
+import { matchesCustomer } from '@/lib/customer-match';
 export function LeadCreate({ onClose }: { onClose: () => void }) {
   const { data, userId, mutate } = useCRM();
   const fields: Field[] = [
@@ -76,15 +77,8 @@ export function LeadCreate({ onClose }: { onClose: () => void }) {
         onClose={onClose}
         submitLabel="Create lead"
         description={(values) => {
-          const email = String(values.email ?? '')
-              .trim()
-              .toLowerCase(),
-            phone = String(values.phone ?? '').replace(/[^0-9]/g, '');
           const match = data.customers.find(
-            (c) =>
-              !c.archived_at &&
-              ((email && c.email.toLowerCase() === email) ||
-                (phone && c.phone.replace(/[^0-9]/g, '') === phone)),
+            (customer) => !customer.archived_at && matchesCustomer(customer, values),
           );
           return match
             ? `Existing customer found: ${fullName(match)}. This enquiry will be linked to their history without overwriting contact details.`

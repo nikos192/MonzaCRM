@@ -316,7 +316,7 @@ function TouchDial({
 function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean }) {
   const { data, openLead, notify, mutate, busy } = useCRM();
   const [updating, setUpdating] = useState<'follow_up_step' | 'call_step' | null>(null);
-  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
     disabled: overlay,
@@ -379,7 +379,7 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
               className="quick-delete"
               aria-label={`Delete ${fullName(c)}`}
               title="Delete lead"
-              onClick={() => setArchiveOpen(true)}
+              onClick={() => setDeleteOpen(true)}
             >
               <Trash2 size={13} />
             </button>
@@ -457,14 +457,14 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
           <Mail size={13} />
         </button>
       </div>
-      {archiveOpen && (
+      {deleteOpen && (
         <Modal
-          title={`Delete ${fullName(c)}?`}
-          subtitle="The lead will leave the active pipeline. Its customer, quote, order and audit history will stay preserved."
-          onClose={() => setArchiveOpen(false)}
+          title={`Permanently delete ${fullName(c)}?`}
+          subtitle="This permanently removes this enquiry, its vehicle, follow-ups, quote, order, payments, files and history. This cannot be undone."
+          onClose={() => setDeleteOpen(false)}
         >
           <div className="modal-footer">
-            <Button variant="secondary" onClick={() => setArchiveOpen(false)}>
+            <Button variant="secondary" onClick={() => setDeleteOpen(false)}>
               Cancel
             </Button>
             <Button
@@ -472,14 +472,14 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
               disabled={busy}
               onClick={async () => {
                 try {
-                  await mutate({ action: 'archive', table: 'leads', id: lead.id });
-                  setArchiveOpen(false);
+                  await mutate({ action: 'delete_lead', id: lead.id });
+                  setDeleteOpen(false);
                 } catch (error) {
                   notify(error instanceof Error ? error.message : 'Unable to delete lead.');
                 }
               }}
             >
-              <Trash2 size={14} /> Delete lead
+              <Trash2 size={14} /> Delete permanently
             </Button>
           </div>
         </Modal>

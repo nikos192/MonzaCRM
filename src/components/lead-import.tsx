@@ -13,6 +13,7 @@ import {
 import { useCRM } from './store';
 import { Badge, Button, Modal } from './ui';
 import { type ParsedLead } from '@/lib/lead-import';
+import { matchesCustomer } from '@/lib/customer-match';
 
 const contactOptions = ['Email', 'Phone', 'SMS', 'Instagram', 'Facebook', 'WhatsApp'];
 const fields: { key: keyof ParsedLead; label: string; type?: string; full?: boolean }[] = [
@@ -50,13 +51,8 @@ export function LeadImport({ onClose }: { onClose: () => void }) {
   }
 
   function existingCustomer(lead: ParsedLead) {
-    const email = lead.email.toLowerCase();
-    const phone = lead.phone.replace(/[^0-9]/g, '');
     return data.customers.some(
-      (customer) =>
-        !customer.archived_at &&
-        ((email && customer.email.toLowerCase() === email) ||
-          (phone && customer.phone.replace(/[^0-9]/g, '') === phone)),
+      (customer) => !customer.archived_at && matchesCustomer(customer, lead),
     );
   }
 

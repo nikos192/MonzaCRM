@@ -113,8 +113,8 @@ export function Provider({
         setToast(
           m.action === 'convert'
             ? 'Deposit recorded. Order created.'
-            : m.action === 'archive'
-              ? 'Record archived.'
+            : m.action === 'delete_lead'
+              ? 'Lead permanently deleted.'
               : 'Changes saved.',
         );
       } catch (e) {

@@ -13,7 +13,7 @@ test('private pages and APIs never expose demo data without authentication', asy
   expect(result.ok()).toBe(false);
   expect(await result.text()).not.toContain('Bennett');
   const mutation = await request.post('/api/crm', {
-    data: { action: 'archive', table: 'leads', id: '00000000-0000-4000-8000-000000000400' },
+    data: { action: 'delete_lead', id: '00000000-0000-4000-8000-000000000400' },
   });
   expect(mutation.status()).toBe(403);
   const file = await request.get('/api/files?id=00000000-0000-4000-8000-000000000400');
@@ -156,9 +156,9 @@ test('pipeline drag persists a stage change and global search opens the record',
   ).toBeVisible();
   await expect(touchpointCard.locator('svg[aria-label="Calls: 3 of 3 complete"]')).toBeVisible();
   await touchpointCard.getByRole('button', { name: 'Delete Daniel Brooks' }).click();
-  const deleteDialog = page.getByRole('dialog', { name: 'Delete Daniel Brooks?' });
+  const deleteDialog = page.getByRole('dialog', { name: 'Permanently delete Daniel Brooks?' });
   await expect(deleteDialog).toBeVisible();
-  await deleteDialog.getByRole('button', { name: 'Delete lead' }).click();
+  await deleteDialog.getByRole('button', { name: 'Delete permanently' }).click();
   await expect(touchpointCard).toHaveCount(0);
   await page.reload();
   await expect(

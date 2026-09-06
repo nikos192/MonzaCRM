@@ -1,4 +1,5 @@
 import { addDays, subDays } from 'date-fns';
+import { matchesCustomer } from './customer-match';
 import {
   emptyData,
   STAGES,
@@ -7,7 +8,6 @@ import {
   type Data,
   type Mutation,
   type Table,
-  type Lead,
   quoteTotal,
   orderPaid,
 } from './types';
@@ -319,12 +319,8 @@ export function applyDemoMutation(original: Data, m: Mutation, userId: string): 
     });
   if (m.action === 'create_lead') {
     const v = m.values;
-    const norm = (x: unknown) => String(x ?? '').replace(/[^0-9]/g, '');
     let customer = data.customers.find(
-      (c) =>
-        !c.archived_at &&
-        ((v.email && c.email.toLowerCase() === String(v.email).toLowerCase()) ||
-          (v.phone && norm(c.phone) === norm(v.phone))),
+      (customer) => !customer.archived_at && matchesCustomer(customer, v),
     );
     if (!customer) {
       customer = {
@@ -427,12 +423,40 @@ export function applyDemoMutation(original: Data, m: Mutation, userId: string): 
     if (index >= 0) rows[index] = updated;
     else rows.unshift(updated);
     audit(table, String(updated.id), index >= 0 ? 'updated' : 'created', before, updated);
-  } else if (m.action === 'archive') {
-    const r = (data[m.table] as (Lead & { archived_at?: string })[]).find((x) => x.id === m.id);
-    if (!r) throw new Error('Record not found');
-    const before = { ...r };
-    r.archived_at = now;
-    audit(m.table, r.id, 'archived', before, r);
+  } else if (m.action === 'delete_lead') {
+    const lead = data.leads.find((item) => item.id === m.id);
+    if (!lead) throw new Error('Lead not found');
+    const orderIds = new Set(
+      data.orders.filter((item) => item.lead_id === lead.id).map((item) => item.id),
+    );
+    const quoteIds = new Set(
+      data.quotes.filter((item) => item.lead_id === lead.id).map((item) => item.id),
+    );
+    data.payments = data.payments.filter((item) => !orderIds.has(item.order_id));
+    data.quote_revisions = data.quote_revisions.filter((item) => !quoteIds.has(item.quote_id));
+    data.orders = data.orders.filter((item) => item.lead_id !== lead.id);
+    data.quotes = data.quotes.filter((item) => item.lead_id !== lead.id);
+    data.wheel_specs = data.wheel_specs.filter((item) => item.lead_id !== lead.id);
+    data.messages = data.messages.filter((item) => item.lead_id !== lead.id);
+    data.follow_ups = data.follow_ups.filter((item) => item.lead_id !== lead.id);
+    data.attachments = data.attachments.filter((item) => item.lead_id !== lead.id);
+    data.leads = data.leads.filter((item) => item.id !== lead.id);
+    if (!data.leads.some((item) => item.vehicle_id === lead.vehicle_id))
+      data.vehicles = data.vehicles.filter((item) => item.id !== lead.vehicle_id);
+    if (
+      !data.leads.some((item) => item.customer_id === lead.customer_id) &&
+      !data.vehicles.some((item) => item.customer_id === lead.customer_id)
+    )
+      data.customers = data.customers.filter((item) => item.id !== lead.customer_id);
+    data.activity_logs = data.activity_logs.filter(
+      (item) =>
+        !(
+          (item.entity === 'leads' && item.entity_id === lead.id) ||
+          (item.entity === 'vehicles' && item.entity_id === lead.vehicle_id) ||
+          (item.entity === 'orders' && orderIds.has(item.entity_id)) ||
+          (item.entity === 'quotes' && quoteIds.has(item.entity_id))
+        ),
+    );
   } else if (m.action === 'convert') {
     const lead = data.leads.find((l) => l.id === m.lead_id && !l.archived_at);
     const q = data.quotes.find((q) => q.lead_id === m.lead_id);
