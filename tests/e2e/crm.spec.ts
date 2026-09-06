@@ -155,6 +155,17 @@ test('pipeline drag persists a stage change and global search opens the record',
     touchpointCard.locator('svg[aria-label="Follow-ups: 3 of 3 complete"]'),
   ).toBeVisible();
   await expect(touchpointCard.locator('svg[aria-label="Calls: 3 of 3 complete"]')).toBeVisible();
+  await touchpointCard.getByRole('button', { name: 'Delete Daniel Brooks' }).click();
+  const deleteDialog = page.getByRole('dialog', { name: 'Delete Daniel Brooks?' });
+  await expect(deleteDialog).toBeVisible();
+  await deleteDialog.getByRole('button', { name: 'Delete lead' }).click();
+  await expect(touchpointCard).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page
+      .locator('.kanban-card')
+      .filter({ has: page.getByRole('button', { name: 'Daniel Brooks', exact: true }) }),
+  ).toHaveCount(0);
   const card = page
     .locator('.kanban-card')
     .filter({ has: page.getByRole('button', { name: 'James Mitchell', exact: true }) });

@@ -1528,6 +1528,26 @@ tbody tr:hover {
 .drag-handle:active {
   cursor: grabbing;
 }
+.quick-delete {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #aaa9a3;
+}
+.quick-delete:hover,
+.quick-delete:focus-visible {
+  background: #fbe9e8;
+  color: var(--red);
+}
+.quick-delete:focus-visible {
+  outline: 2px solid #e7aaa6;
+  outline-offset: 1px;
+}
 .kanban-name {
   border: 0;
   background: none;

@@ -13,6 +13,7 @@ import {
   Mail,
   GripVertical,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import {
   DndContext,
@@ -27,7 +28,7 @@ import {
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useCRM } from './store';
-import { Avatar, Badge, Button, Empty } from './ui';
+import { Avatar, Badge, Button, Empty, Modal } from './ui';
 import {
   fullName,
   vehicleName,
@@ -313,8 +314,9 @@ function TouchDial({
   );
 }
 function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean }) {
-  const { data, openLead, notify, mutate } = useCRM();
+  const { data, openLead, notify, mutate, busy } = useCRM();
   const [updating, setUpdating] = useState<'follow_up_step' | 'call_step' | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
     disabled: overlay,
@@ -372,6 +374,16 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
         <span className="source-label">{lead.source}</span>
         <div>
           {lead.priority === 'High' && <span className="priority-dot" title="High priority" />}
+          {!overlay && (
+            <button
+              className="quick-delete"
+              aria-label={`Delete ${fullName(c)}`}
+              title="Delete lead"
+              onClick={() => setArchiveOpen(true)}
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
           <button
             className="drag-handle"
             {...listeners}
@@ -445,6 +457,33 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
           <Mail size={13} />
         </button>
       </div>
+      {archiveOpen && (
+        <Modal
+          title={`Delete ${fullName(c)}?`}
+          subtitle="The lead will leave the active pipeline. Its customer, quote, order and audit history will stay preserved."
+          onClose={() => setArchiveOpen(false)}
+        >
+          <div className="modal-footer">
+            <Button variant="secondary" onClick={() => setArchiveOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              disabled={busy}
+              onClick={async () => {
+                try {
+                  await mutate({ action: 'archive', table: 'leads', id: lead.id });
+                  setArchiveOpen(false);
+                } catch (error) {
+                  notify(error instanceof Error ? error.message : 'Unable to delete lead.');
+                }
+              }}
+            >
+              <Trash2 size={14} /> Delete lead
+            </Button>
+          </div>
+        </Modal>
+      )}
     </article>
   );
 }
