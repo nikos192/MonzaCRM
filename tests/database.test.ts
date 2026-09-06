@@ -32,6 +32,9 @@ beforeAll(async () => {
  `);
   await db.exec(readFileSync('supabase/migrations/202609060001_crm.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/202609060002_touchpoint_dials.sql', 'utf8'));
+  await db.exec(
+    readFileSync('supabase/migrations/202609060003_restore_follow_up_progress.sql', 'utf8'),
+  );
   await db.query('insert into auth.users(id,email) values($1,$2),($3,$4)', [
     approved,
     'nikos@example.com',
@@ -120,6 +123,28 @@ describe('actual PostgreSQL migration, RLS and transactional workflows', () => {
     await expect(
       db.query('update public.leads set call_step=4 where id=$1', [leadId]),
     ).rejects.toThrow();
+
+    await identity('postgres');
+    const legacyStage = await scalar<string>(
+      "insert into public.pipeline_stages(name,position,colour,is_terminal) values('Legacy Follow-Up 2',92,'#c88a42',true) returning id value",
+    );
+    const quoteStage = await scalar<string>(
+      "select id value from public.pipeline_stages where name='Quote Sent'",
+    );
+    await db.query(
+      'insert into public.lead_stage_history(lead_id,from_stage_id,to_stage_id,actor_id) values($1,$2,$3,$4)',
+      [leadId, legacyStage, quoteStage, approved],
+    );
+    await db.query('update public.leads set follow_up_step=0 where id=$1', [leadId]);
+    await db.exec(
+      readFileSync('supabase/migrations/202609060003_restore_follow_up_progress.sql', 'utf8'),
+    );
+    expect(
+      await scalar<number>('select follow_up_step::int value from public.leads where id=$1', [
+        leadId,
+      ]),
+    ).toBe(2);
+    await identity('authenticated', approved);
   });
   it('rolls back customer and vehicle if lead creation fails', async () => {
     const before = await scalar<number>('select count(*)::int value from public.customers');
