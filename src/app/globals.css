@@ -1590,7 +1590,8 @@ tbody tr:hover {
 }
 .touch-dial {
   --dial-colour: #b67c3d;
-  display: flex;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -1665,11 +1666,29 @@ tbody tr:hover {
   font-weight: 700;
   pointer-events: none;
 }
-.touch-dial > span {
+.touch-dial .dial-label {
   color: #777970;
   font-size: 7px;
   font-weight: 650;
   line-height: 1.2;
+}
+.dial-timestamp {
+  grid-column: 1 / -1;
+  align-self: start;
+  color: #62665c;
+  font-size: 10px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.dial-timestamp time {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 4px;
+}
+.dial-timestamp time > span:first-child {
+  flex-basis: 100%;
+  color: #777970;
+  font-size: 9px;
 }
 .follow-chip {
   display: flex;

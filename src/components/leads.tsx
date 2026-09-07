@@ -39,6 +39,7 @@ import {
 } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { dayKey } from '@/lib/analytics';
+import { lastDialChange } from '@/lib/touchpoints';
 export function LeadList({
   onNew,
   onImport,
@@ -268,12 +269,14 @@ function TouchDial({
   value,
   tone,
   disabled,
+  lastChanged,
   onChange,
 }: {
   label: string;
   value: number;
   tone: 'follow' | 'call';
   disabled?: boolean;
+  lastChanged?: string;
   onChange: (value: number) => void;
 }) {
   const change = (step: number) => onChange(value === step ? step - 1 : step);
@@ -309,7 +312,40 @@ function TouchDial({
           />
         ))}
       </div>
-      <span>{label}</span>
+      <span className="dial-label">{label}</span>
+      <div className="dial-timestamp" aria-live="polite">
+        {lastChanged ? (
+          <time
+            dateTime={lastChanged}
+            title={`Last clicked: ${new Date(lastChanged).toLocaleString('en-AU', {
+              dateStyle: 'full',
+              timeStyle: 'long',
+              timeZone: 'Australia/Brisbane',
+            })}`}
+          >
+            <span>Last clicked</span>
+            <span>
+              {new Date(lastChanged).toLocaleDateString('en-AU', {
+                day: 'numeric',
+                month: 'short',
+                timeZone: 'Australia/Brisbane',
+                ...(dayKey(lastChanged).slice(0, 4) !== dayKey(new Date()).slice(0, 4)
+                  ? { year: 'numeric' as const }
+                  : {}),
+              })}
+            </span>
+            <span>
+              {new Date(lastChanged).toLocaleTimeString('en-AU', {
+                hour: 'numeric',
+                minute: '2-digit',
+                timeZone: 'Australia/Brisbane',
+              })}
+            </span>
+          </time>
+        ) : (
+          <span>No click recorded</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -419,6 +455,7 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
           label="Follow-ups"
           tone="follow"
           value={lead.follow_up_step ?? 0}
+          lastChanged={lastDialChange(data.activity_logs, lead.id, 'follow_up_step')}
           disabled={overlay || updating !== null}
           onChange={(value) => updateDial('follow_up_step', value)}
         />
@@ -426,6 +463,7 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
           label="Calls"
           tone="call"
           value={lead.call_step ?? 0}
+          lastChanged={lastDialChange(data.activity_logs, lead.id, 'call_step')}
           disabled={overlay || updating !== null}
           onChange={(value) => updateDial('call_step', value)}
         />
