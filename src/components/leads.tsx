@@ -351,7 +351,7 @@ function TouchDial({
 }
 function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean }) {
   const { data, openLead, notify, mutate, busy } = useCRM();
-  const [updating, setUpdating] = useState<'follow_up_step' | 'call_step' | null>(null);
+  const [updating, setUpdating] = useState<'call_step' | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
@@ -377,7 +377,7 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
       notify('Clipboard unavailable. Open the lead to copy the detail.');
     }
   }
-  async function updateDial(field: 'follow_up_step' | 'call_step', value: number) {
+  async function updateDial(field: 'call_step', value: number) {
     setUpdating(field);
     try {
       const contacted = field === 'call_step' && value > (lead.call_step ?? 0);
@@ -451,14 +451,10 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
         </button>
       )}
       <div className="touchpoint-dials">
-        <TouchDial
-          label="Follow-ups"
-          tone="follow"
-          value={lead.follow_up_step ?? 0}
-          lastChanged={lastDialChange(data.activity_logs, lead.id, 'follow_up_step')}
-          disabled={overlay || updating !== null}
-          onChange={(value) => updateDial('follow_up_step', value)}
-        />
+        <div className="follow-up-progress">
+          <strong>{lead.follow_up_step ?? 0}</strong>
+          <span>follow-ups recorded</span>
+        </div>
         <TouchDial
           label="Calls"
           tone="call"
@@ -675,7 +671,13 @@ export function Pipeline({
                 id={s.id}
                 name={s.name}
                 colour={s.colour}
-                leads={leads.filter((l) => l.stage_id === s.id)}
+                leads={leads
+                  .filter((l) => l.stage_id === s.id)
+                  .sort(
+                    (a, b) =>
+                      Date.parse(b.created_at) - Date.parse(a.created_at) ||
+                      a.id.localeCompare(b.id),
+                  )}
                 onNew={onNew}
               />
             ))}

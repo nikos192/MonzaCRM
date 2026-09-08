@@ -21,7 +21,8 @@ export function makeDemo(): Data {
     { ...row(1), display_name: 'Nikos' },
     { ...row(2), display_name: 'Max' },
   ];
-  data.pipeline_stages = STAGES.map((name, i) => ({
+  const seedStages = STAGES.filter((name) => !/^Follow-Up [123]$/.test(name));
+  data.pipeline_stages = seedStages.map((name, i) => ({
     ...row(100 + i),
     name,
     position: i,
@@ -275,7 +276,7 @@ export function makeDemo(): Data {
         summary:
           stage === 0
             ? `${first} ${last} enquired about ${chassis} ${model}`
-            : `${first} ${last} · ${STAGES[stage]}`,
+            : `${first} ${last} · ${seedStages[stage]}`,
       },
     });
   });
@@ -302,7 +303,7 @@ export function makeDemo(): Data {
       shipping_notes: 'QC photos required before dispatch',
     },
   ];
-  return data;
+  return restoreDemoFollowUpSections(data);
 }
 export function applyDemoMutation(original: Data, m: Mutation, userId: string): Data {
   const data = structuredClone(original);
@@ -356,7 +357,11 @@ export function applyDemoMutation(original: Data, m: Mutation, userId: string): 
       priority: String(v.priority),
       notes: String(v.notes),
       last_contacted: null,
-      follow_up_step: 0,
+      follow_up_step: Number(
+        /^Follow-Up ([123])$/.exec(
+          data.pipeline_stages.find((stage) => stage.id === v.stage_id)?.name ?? '',
+        )?.[1] ?? 0,
+      ),
       call_step: 0,
     };
     data.leads.unshift(lead);
@@ -368,6 +373,17 @@ export function applyDemoMutation(original: Data, m: Mutation, userId: string): 
     if (m.id && index < 0) throw new Error('Record not found.');
     const before = index >= 0 ? structuredClone(rows[index]) : {};
     const values = { ...m.values };
+    if (table === 'leads') {
+      const stage = data.pipeline_stages.find(
+        (stage) => stage.id === (values.stage_id ?? before.stage_id),
+      );
+      const step = /^Follow-Up ([123])$/.exec(stage?.name ?? '');
+      values.follow_up_step = Math.max(
+        Number(before.follow_up_step ?? 0),
+        Number(values.follow_up_step ?? 0),
+        Number(step?.[1] ?? 0),
+      );
+    }
     if (table === 'messages') {
       values.staff_user = userId;
       if (values.direction === 'Outgoing' && values.channel !== 'Manual note') {
@@ -512,4 +528,53 @@ export function applyDemoMutation(original: Data, m: Mutation, userId: string): 
     audit('payments', payment.id, 'created', {}, payment);
   }
   return data;
+}
+
+// Upgrade older saved demo workspaces once; preserve IDs, call counts and history.
+export function restoreDemoFollowUpSections(data: Data): Data {
+  if (
+    [1, 2, 3].every((step) =>
+      data.pipeline_stages.some((stage) => stage.name === `Follow-Up ${step}`),
+    )
+  )
+    return data;
+  const next = structuredClone(data);
+  for (const step of [1, 2, 3]) {
+    const name = `Follow-Up ${step}`;
+    const stage = next.pipeline_stages.find(
+      (stage) =>
+        stage.name === name || new RegExp(`^Legacy Follow[- ]?Up ${step}$`, 'i').test(stage.name),
+    );
+    if (stage) {
+      stage.name = name;
+      stage.is_terminal = false;
+    } else {
+      next.pipeline_stages.push({
+        id: demoId(110 + step),
+        created_at: next.pipeline_stages[0].created_at,
+        name,
+        position: 3 + step,
+        colour: '#c88a42',
+        is_terminal: false,
+      });
+    }
+  }
+  next.pipeline_stages.forEach((stage) => {
+    const position = STAGES.indexOf(stage.name);
+    if (position >= 0) stage.position = position;
+  });
+  for (const lead of next.leads) {
+    const stage = next.pipeline_stages.find((stage) => stage.id === lead.stage_id);
+    if (
+      !lead.archived_at &&
+      !next.orders.some((order) => order.lead_id === lead.id) &&
+      ['New Lead', 'Contacted', 'Replied', 'Quote Sent'].includes(stage?.name ?? '') &&
+      lead.follow_up_step > 0
+    ) {
+      lead.stage_id = next.pipeline_stages.find(
+        (stage) => stage.name === `Follow-Up ${lead.follow_up_step}`,
+      )!.id;
+    }
+  }
+  return next;
 }

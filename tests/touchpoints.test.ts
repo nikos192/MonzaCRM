@@ -1,3 +1,4 @@
+import { makeDemo, applyDemoMutation, restoreDemoFollowUpSections, demoId } from '../src/lib/demo';
 import { describe, expect, it } from 'vitest';
 import { lastDialChange } from '../src/lib/touchpoints';
 import type { Activity } from '../src/lib/types';
@@ -61,5 +62,61 @@ describe('saved dial timestamps', () => {
       ),
     ).toBeUndefined();
     expect(lastDialChange([], 'lead', 'call_step')).toBeUndefined();
+  });
+});
+
+describe('follow-up sections in saved workspaces', () => {
+  it('restores saved progress once without changing calls or pulling orders backwards', () => {
+    const data = makeDemo();
+    data.pipeline_stages = data.pipeline_stages.filter(
+      (stage) => !/^Follow-Up [123]$/.test(stage.name),
+    );
+    const lead = data.leads.find(
+      (lead) => !data.orders.some((order) => order.lead_id === lead.id),
+    )!;
+    lead.stage_id = data.pipeline_stages.find((stage) => stage.name === 'Quote Sent')!.id;
+    lead.follow_up_step = 2;
+    lead.call_step = 3;
+    const restored = restoreDemoFollowUpSections(data);
+    const saved = restored.leads.find((item) => item.id === lead.id)!;
+    expect(restored.pipeline_stages.find((stage) => stage.id === saved.stage_id)?.name).toBe(
+      'Follow-Up 2',
+    );
+    expect(saved.call_step).toBe(3);
+    expect(saved.last_contacted).toBe(lead.last_contacted);
+    expect(
+      restored.orders.map(
+        (order) => restored.leads.find((lead) => lead.id === order.lead_id)?.stage_id,
+      ),
+    ).toEqual(
+      data.orders.map((order) => data.leads.find((lead) => lead.id === order.lead_id)?.stage_id),
+    );
+    const advanced = applyDemoMutation(
+      restored,
+      {
+        action: 'save',
+        table: 'leads',
+        id: lead.id,
+        values: {
+          stage_id: restored.pipeline_stages.find((stage) => stage.name === 'Follow-Up 3')!.id,
+        },
+      },
+      demoId(1),
+    );
+    const back = applyDemoMutation(
+      advanced,
+      {
+        action: 'save',
+        table: 'leads',
+        id: lead.id,
+        values: {
+          stage_id: restored.pipeline_stages.find((stage) => stage.name === 'Quote Sent')!.id,
+        },
+      },
+      demoId(1),
+    );
+    expect(back.leads.find((item) => item.id === lead.id)?.follow_up_step).toBe(3);
+    expect(back.leads.find((item) => item.id === lead.id)?.call_step).toBe(3);
+    expect(restoreDemoFollowUpSections(back)).toEqual(back);
   });
 });

@@ -189,6 +189,75 @@ describe('actual PostgreSQL migration, RLS and transactional workflows', () => {
     ).toBe(2);
     await identity('authenticated', approved);
   });
+  it('restores follow-up sections without losing counts or moving closed leads', async () => {
+    await identity('postgres', approved);
+    const legacyId = await scalar<string>(
+      "select id value from public.pipeline_stages where name='Legacy Follow-Up 2'",
+    );
+    const closed = await scalar<string>('select public.create_lead($1::jsonb) value', [
+      JSON.stringify({
+        first_name: 'Closed',
+        make: 'BMW',
+        model: 'M3',
+        stage_id: await scalar<string>(
+          "select id value from public.pipeline_stages where name='Completed'",
+        ),
+      }),
+    ]);
+    await db.query('update public.leads set follow_up_step=3,call_step=3 where id=$1', [closed]);
+    const before = await scalar<string>(
+      'select last_contacted::text value from public.leads where id=$1',
+      [leadId],
+    );
+    await db.exec(
+      readFileSync('supabase/migrations/202609080001_restore_follow_up_sections.sql', 'utf8'),
+    );
+    expect(
+      await scalar<number>(
+        "select count(*)::int value from public.pipeline_stages where name ~ '^Follow-Up [123]$' and not is_terminal",
+      ),
+    ).toBe(3);
+    expect(
+      await scalar<string>("select id value from public.pipeline_stages where name='Follow-Up 2'"),
+    ).toBe(legacyId);
+    expect(
+      (
+        await db.query(
+          'select stage.name,lead.follow_up_step,lead.call_step from public.leads lead join public.pipeline_stages stage on stage.id=lead.stage_id where lead.id=$1',
+          [leadId],
+        )
+      ).rows[0],
+    ).toEqual({ name: 'Follow-Up 2', follow_up_step: 2, call_step: 2 });
+    expect(
+      await scalar<string>('select last_contacted::text value from public.leads where id=$1', [
+        leadId,
+      ]),
+    ).toBe(before);
+    expect(
+      (
+        await db.query(
+          'select stage.name,lead.follow_up_step,lead.call_step from public.leads lead join public.pipeline_stages stage on stage.id=lead.stage_id where lead.id=$1',
+          [closed],
+        )
+      ).rows[0],
+    ).toEqual({ name: 'Completed', follow_up_step: 3, call_step: 3 });
+    await identity('authenticated', approved);
+    for (const step of [3, 1]) {
+      await db.query(
+        'update public.leads set stage_id=(select id from public.pipeline_stages where name=$2) where id=$1',
+        [leadId, `Follow-Up ${step}`],
+      );
+      expect(
+        await scalar<number>('select follow_up_step::int value from public.leads where id=$1', [
+          leadId,
+        ]),
+      ).toBe(3);
+      expect(
+        await scalar<number>('select call_step::int value from public.leads where id=$1', [leadId]),
+      ).toBe(2);
+    }
+    await db.query('select public.delete_lead($1)', [closed]);
+  });
   it('rolls back customer and vehicle if lead creation fails', async () => {
     const before = await scalar<number>('select count(*)::int value from public.customers');
     await expect(

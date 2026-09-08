@@ -100,9 +100,9 @@ describe('CRM business workflow', () => {
       demoId(2),
     );
     expect(n.leads[0].stage_id).toBe(demoId(104));
-    expect(d.leads[0].stage_id).toBe(demoId(103));
+    expect(d.leads[0].stage_id).toBe(demoId(111));
     expect(n.activity_logs[0].actor_id).toBe(demoId(2));
-    expect(n.activity_logs[0].metadata.before).toMatchObject({ stage_id: demoId(103) });
+    expect(n.activity_logs[0].metadata.before).toMatchObject({ stage_id: demoId(111) });
   });
   it('keeps quote revisions and converts a deposit into a linked order', () => {
     const d = makeDemo(),

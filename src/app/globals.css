@@ -5592,3 +5592,19 @@ tbody tr:hover {
     grid-column: auto;
   }
 }
+
+.follow-up-progress {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  color: #777970;
+  font-size: 9px;
+  line-height: 1.4;
+}
+.follow-up-progress strong {
+  color: #986833;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1;
+}

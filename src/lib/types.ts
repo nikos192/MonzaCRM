@@ -197,6 +197,9 @@ export const STAGES = [
   'Contacted',
   'Replied',
   'Quote Sent',
+  'Follow-Up 1',
+  'Follow-Up 2',
+  'Follow-Up 3',
   'Deposit Paid',
   'In Production',
   'Balance Due',
@@ -205,8 +208,7 @@ export const STAGES = [
   'Completed',
   'Lost',
 ];
-export const isLegacyFollowUpStage = (name: string) =>
-  /^(?:Legacy )?Follow[- ]?Up [123]$/i.test(name);
+export const isLegacyFollowUpStage = (name: string) => /^Legacy Follow[- ]?Up [123]$/i.test(name);
 export const ORDER_STAGES = [
   'Deposit Paid',
   'Awaiting Render',

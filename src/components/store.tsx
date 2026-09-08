@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { type Data, type Mutation } from '@/lib/types';
-import { applyDemoMutation, makeDemo } from '@/lib/demo';
+import { applyDemoMutation, makeDemo, restoreDemoFollowUpSections } from '@/lib/demo';
 import { validateMutation } from '@/lib/validation';
 type Context = {
   data: Data;
@@ -56,7 +56,11 @@ export function Provider({
         const raw = localStorage.getItem('monza-demo-v1');
         if (raw) {
           const saved = JSON.parse(raw);
-          if (saved.leads && saved.profiles && saved.settings) setData(saved);
+          if (saved.leads && saved.profiles && saved.settings) {
+            const restored = restoreDemoFollowUpSections(saved);
+            localStorage.setItem('monza-demo-v1', JSON.stringify(restored));
+            setData(restored);
+          }
         }
       } catch {
         localStorage.removeItem('monza-demo-v1');

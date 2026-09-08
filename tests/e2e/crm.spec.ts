@@ -137,22 +137,33 @@ test('pipeline drag persists a stage change and global search opens the record',
 }) => {
   await page.goto('/demo?view=pipeline');
   await expect(page.getByRole('heading', { name: 'Sales pipeline.' })).toBeVisible();
-  await expect(page.getByRole('region', { name: /^Follow-Up [123]$/ })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: /^Follow-Up [123]$/ })).toHaveCount(3);
   let touchpointCard = page
     .locator('.kanban-card')
     .filter({ has: page.getByRole('button', { name: 'Daniel Brooks', exact: true }) });
-  await touchpointCard.getByRole('button', { name: 'Set follow-ups to 3 of 3' }).click();
+  await touchpointCard.getByRole('button', { name: 'Daniel Brooks', exact: true }).click();
+  await page.getByLabel('Change pipeline stage').selectOption({ label: 'Follow-Up 3' });
+  await page
+    .getByRole('dialog', { name: 'Daniel Brooks', exact: true })
+    .getByRole('button', { name: 'Close dialog', exact: true })
+    .click();
   await touchpointCard.getByRole('button', { name: 'Set calls to 3 of 3' }).click();
+  await expect(touchpointCard.locator('.follow-up-progress')).toHaveText('3follow-ups recorded');
   await expect(
-    touchpointCard.locator('svg[aria-label="Follow-ups: 3 of 3 complete"]'),
+    page
+      .getByRole('region', { name: 'Follow-Up 3', exact: true })
+      .getByRole('button', { name: 'Daniel Brooks', exact: true }),
   ).toBeVisible();
   await expect(touchpointCard.locator('svg[aria-label="Calls: 3 of 3 complete"]')).toBeVisible();
   await page.reload();
   touchpointCard = page
     .locator('.kanban-card')
     .filter({ has: page.getByRole('button', { name: 'Daniel Brooks', exact: true }) });
+  await expect(touchpointCard.locator('.follow-up-progress')).toHaveText('3follow-ups recorded');
   await expect(
-    touchpointCard.locator('svg[aria-label="Follow-ups: 3 of 3 complete"]'),
+    page
+      .getByRole('region', { name: 'Follow-Up 3', exact: true })
+      .getByRole('button', { name: 'Daniel Brooks', exact: true }),
   ).toBeVisible();
   await expect(touchpointCard.locator('svg[aria-label="Calls: 3 of 3 complete"]')).toBeVisible();
   await touchpointCard.getByRole('button', { name: 'Delete Daniel Brooks' }).click();
