@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Search,
   Plus,
@@ -40,6 +40,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { dayKey } from '@/lib/analytics';
 import { lastDialChange } from '@/lib/touchpoints';
+import { columnEntryTimes, compareColumnEntries } from '@/lib/pipeline';
 export function LeadList({
   onNew,
   onImport,
@@ -349,7 +350,15 @@ function TouchDial({
     </div>
   );
 }
-function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean }) {
+function PipelineCard({
+  lead,
+  enteredAt,
+  overlay = false,
+}: {
+  lead: Lead;
+  enteredAt: string;
+  overlay?: boolean;
+}) {
   const { data, openLead, notify, mutate, busy } = useCRM();
   const [updating, setUpdating] = useState<'call_step' | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -435,6 +444,26 @@ function PipelineCard({ lead, overlay = false }: { lead: Lead; overlay?: boolean
         <ArrowUpRight size={14} />
       </button>
       <p className="kanban-vehicle">{vehicleName(v)}</p>
+      <div className="kanban-column-time">
+        <span>In column since</span>
+        <time
+          dateTime={enteredAt}
+          title={new Date(enteredAt).toLocaleString('en-AU', {
+            dateStyle: 'full',
+            timeStyle: 'long',
+            timeZone: 'Australia/Brisbane',
+          })}
+        >
+          {new Date(enteredAt).toLocaleString('en-AU', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: 'Australia/Brisbane',
+          })}
+        </time>
+      </div>
       <div className="kanban-quote">
         <strong>{q ? money(quoteTotal(q)) : 'Quote pending'}</strong>
         <Avatar name={p?.display_name ?? 'Unassigned'} size="small" />
@@ -526,12 +555,14 @@ function Column({
   name,
   colour,
   leads,
+  enteredAt,
   onNew,
 }: {
   id: string;
   name: string;
   colour: string;
   leads: Lead[];
+  enteredAt: Map<string, string>;
   onNew: () => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id });
@@ -559,7 +590,7 @@ function Column({
       <div className="column-value">{money(total)}</div>
       <div className="kanban-cards">
         {leads.map((l) => (
-          <PipelineCard lead={l} key={l.id} />
+          <PipelineCard lead={l} enteredAt={enteredAt.get(l.id) ?? l.created_at} key={l.id} />
         ))}
         {!leads.length && <div className="drop-empty">Drop a lead here</div>}
       </div>
@@ -574,6 +605,10 @@ export function Pipeline({
   navigate: (v: string) => void;
 }) {
   const { data, mutate, notify } = useCRM();
+  const enteredAt = useMemo(
+    () => columnEntryTimes(data.leads, data.activity_logs),
+    [data.leads, data.activity_logs],
+  );
   const [query, setQuery] = useState('');
   const [owner, setOwner] = useState('all');
   const [active, setActive] = useState<string | null>(null);
@@ -671,26 +706,27 @@ export function Pipeline({
                 id={s.id}
                 name={s.name}
                 colour={s.colour}
+                enteredAt={enteredAt}
                 leads={leads
                   .filter((l) => l.stage_id === s.id)
-                  .sort(
-                    (a, b) =>
-                      Date.parse(b.created_at) - Date.parse(a.created_at) ||
-                      a.id.localeCompare(b.id),
-                  )}
+                  .sort((a, b) => compareColumnEntries(a, b, enteredAt))}
                 onNew={onNew}
               />
             ))}
         </div>
         <DragOverlay>
           {active && data.leads.find((l) => l.id === active) ? (
-            <PipelineCard lead={data.leads.find((l) => l.id === active)!} overlay />
+            <PipelineCard
+              lead={data.leads.find((l) => l.id === active)!}
+              enteredAt={enteredAt.get(active)!}
+              overlay
+            />
           ) : null}
         </DragOverlay>
       </DndContext>
       <p className="pipeline-hint">
         <GripVertical size={14} /> Drag the card handle to move a lead. You can also change stages
-        inside any lead profile.
+        inside any lead profile. Newest moves appear first in each column.
       </p>
     </div>
   );

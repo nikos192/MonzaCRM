@@ -143,15 +143,26 @@ test('pipeline drag persists a stage change and global search opens the record',
     .filter({ has: page.getByRole('button', { name: 'Daniel Brooks', exact: true }) });
   await touchpointCard.getByRole('button', { name: 'Daniel Brooks', exact: true }).click();
   await page.getByLabel('Change pipeline stage').selectOption({ label: 'Follow-Up 3' });
+  await page.getByLabel('Change pipeline stage').selectOption({ label: 'Follow-Up 1' });
   await page
     .getByRole('dialog', { name: 'Daniel Brooks', exact: true })
     .getByRole('button', { name: 'Close dialog', exact: true })
     .click();
+  const enteredAt = await touchpointCard
+    .locator('.kanban-column-time time')
+    .getAttribute('datetime');
+  expect(enteredAt).toBeTruthy();
   await touchpointCard.getByRole('button', { name: 'Set calls to 3 of 3' }).click();
+  await expect(touchpointCard.locator('.kanban-column-time time')).toHaveAttribute(
+    'datetime',
+    enteredAt!,
+  );
   await expect(touchpointCard.locator('.follow-up-progress')).toHaveText('3follow-ups recorded');
   await expect(
     page
-      .getByRole('region', { name: 'Follow-Up 3', exact: true })
+      .getByRole('region', { name: 'Follow-Up 1', exact: true })
+      .locator('.kanban-card')
+      .first()
       .getByRole('button', { name: 'Daniel Brooks', exact: true }),
   ).toBeVisible();
   await expect(touchpointCard.locator('svg[aria-label="Calls: 3 of 3 complete"]')).toBeVisible();
@@ -162,10 +173,16 @@ test('pipeline drag persists a stage change and global search opens the record',
   await expect(touchpointCard.locator('.follow-up-progress')).toHaveText('3follow-ups recorded');
   await expect(
     page
-      .getByRole('region', { name: 'Follow-Up 3', exact: true })
+      .getByRole('region', { name: 'Follow-Up 1', exact: true })
+      .locator('.kanban-card')
+      .first()
       .getByRole('button', { name: 'Daniel Brooks', exact: true }),
   ).toBeVisible();
   await expect(touchpointCard.locator('svg[aria-label="Calls: 3 of 3 complete"]')).toBeVisible();
+  await expect(touchpointCard.locator('.kanban-column-time time')).toHaveAttribute(
+    'datetime',
+    enteredAt!,
+  );
   await touchpointCard.getByRole('button', { name: 'Delete Daniel Brooks' }).click();
   const deleteDialog = page.getByRole('dialog', { name: 'Permanently delete Daniel Brooks?' });
   await expect(deleteDialog).toBeVisible();

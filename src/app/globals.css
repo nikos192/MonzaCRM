@@ -1568,6 +1568,22 @@ tbody tr:hover {
   color: #7f7f76;
   margin-top: 5px;
 }
+.kanban-column-time {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+  font-size: 10px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.kanban-column-time > span {
+  color: #7f7f76;
+  font-size: 9px;
+}
+.kanban-column-time time {
+  color: #555b52;
+}
 .kanban-quote {
   display: flex;
   align-items: center;
