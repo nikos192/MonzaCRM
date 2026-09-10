@@ -1,5 +1,6 @@
+import { lastDialChange } from '../src/lib/touchpoints';
 import { describe, expect, it } from 'vitest';
-import { columnEntryTimes, compareColumnEntries } from '../src/lib/pipeline';
+import { columnEntryTimes, compareColumnEntries, buildPipelineIndex } from '../src/lib/pipeline';
 import { makeDemo, applyDemoMutation, demoId } from '../src/lib/demo';
 import type { Activity } from '../src/lib/types';
 
@@ -66,4 +67,27 @@ describe('pipeline column entry times', () => {
     expect(reloaded.leads[0].follow_up_step).toBe(2);
     expect(reloaded.leads[0].call_step).toBe(3);
   });
+});
+
+it('indexes the same quotes, earliest open follow-ups, call times and customers without mutating data', () => {
+  const data = makeDemo();
+  const before = structuredClone(data);
+  const index = buildPipelineIndex(data);
+  for (const lead of data.leads) {
+    const card = index.cards.get(lead.id)!;
+    expect(card.customer).toEqual(data.customers.find((row) => row.id === lead.customer_id));
+    expect(card.quote).toEqual(data.quotes.find((row) => row.lead_id === lead.id));
+    expect(card.follow).toEqual(
+      data.follow_ups
+        .filter((row) => row.lead_id === lead.id && row.status === 'Open')
+        .sort((a, b) => a.due_at.localeCompare(b.due_at))[0],
+    );
+    expect(card.lastCall).toBe(lastDialChange(data.activity_logs, lead.id, 'call_step'));
+  }
+  expect(index.sorted.map((card) => card.lead)).toEqual(
+    data.leads
+      .filter((lead) => !lead.archived_at)
+      .sort((a, b) => compareColumnEntries(a, b, columnEntryTimes(data.leads, data.activity_logs))),
+  );
+  expect(data).toEqual(before);
 });

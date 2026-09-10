@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { Activity } from '@/lib/types';
 import { requireApproved } from '@/lib/supabase/server';
 import { loadData } from '@/lib/data';
 import { validateMutation } from '@/lib/validation';
@@ -46,7 +47,12 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       result = m.id
-        ? await db.from(m.table).update(m.values).eq('id', m.id).select('id').single()
+        ? await db
+            .from(m.table)
+            .update(m.values)
+            .eq('id', m.id)
+            .select(m.table === 'leads' ? '*' : 'id')
+            .single()
         : await db
             .from(m.table)
             .insert(m.values as Record<string, unknown>)
@@ -68,6 +74,27 @@ export async function POST(request: Request) {
           { status: 409 },
         );
       throw result.error;
+    }
+    // A lead edit only changes that lead and its audit trail. Avoid reloading every CRM table.
+    if (m.action === 'save' && m.table === 'leads' && m.id) {
+      const activity: Activity[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data: page, error } = await db
+          .from('activity_logs')
+          .select('*')
+          .eq('entity', 'leads')
+          .eq('entity_id', m.id)
+          .order('id')
+          .range(offset, offset + 999);
+        // The write has already succeeded. Let the client fall back to its full refresh.
+        if (error) return NextResponse.json({ data: result.data });
+        activity.push(...(page ?? []));
+        if (!page || page.length < 1000) break;
+      }
+      return NextResponse.json({
+        data: result.data,
+        leadPatch: { lead: result.data, activity_logs: activity },
+      });
     }
     return NextResponse.json({ data: result.data });
   } catch (e) {

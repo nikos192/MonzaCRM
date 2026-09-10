@@ -1,7 +1,9 @@
+import { makeDemo, demoId } from '../../src/lib/demo';
 import { test, expect } from '@playwright/test';
 test('private pages and APIs never expose demo data without authentication', async ({
   page,
   request,
+  baseURL,
 }) => {
   const direct = await request.get('/leads', { maxRedirects: 0 });
   expect(direct.status()).toBe(307);
@@ -21,7 +23,7 @@ test('private pages and APIs never expose demo data without authentication', asy
   const intake = await request.post('/api/leads/intake', { data: { first_name: 'Anonymous' } });
   expect([401, 503]).toContain(intake.status());
   const aiImport = await request.post('/api/ai/leads', {
-    headers: { Origin: 'http://localhost:3000' },
+    headers: { Origin: baseURL! },
     data: { action: 'parse', text: 'Example lead with enough text' },
   });
   expect(aiImport.status()).toBe(401);
@@ -256,4 +258,42 @@ test('all navigation screens render and mobile layout stays within viewport', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+});
+
+test('a large pipeline filters by customer and owner without changing stored progress', async ({
+  page,
+}) => {
+  const data = makeDemo();
+  const customer = data.customers[0];
+  const lead = data.leads[0];
+  data.customers = Array.from({ length: 140 }, (_, i) => ({
+    ...customer,
+    id: demoId(10000 + i),
+    first_name: 'Scale',
+    last_name: String(i),
+  }));
+  data.leads = data.customers.map((customer, i) => ({
+    ...lead,
+    id: demoId(20000 + i),
+    customer_id: customer.id,
+    stage_id: demoId(111),
+    handled_by: demoId((i % 2) + 1),
+  }));
+  data.activity_logs = [];
+  await page.goto('/demo?view=pipeline');
+  await page.evaluate((data) => localStorage.setItem('monza-demo-v1', JSON.stringify(data)), data);
+  await page.reload();
+  await expect(page.locator('.kanban-card')).toHaveCount(140);
+  await page.getByLabel('Search pipeline').fill('Scale 139');
+  await expect(page.locator('.kanban-card')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Scale 139', exact: true })).toBeVisible();
+  await page.getByLabel('Filter by owner').selectOption(demoId(1));
+  await expect(page.locator('.kanban-card')).toHaveCount(0);
+  await page.getByLabel('Filter by owner').selectOption(demoId(2));
+  await expect(page.locator('.kanban-card')).toHaveCount(1);
+  await expect(page.locator('.follow-up-progress')).toHaveText(
+    `${lead.follow_up_step}follow-ups recorded`,
+  );
+  await page.getByLabel('Search pipeline').fill('');
+  await expect(page.locator('.kanban-card')).toHaveCount(70);
 });

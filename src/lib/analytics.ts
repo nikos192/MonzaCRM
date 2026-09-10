@@ -1,11 +1,11 @@
 import { type Data, fullName, vehicleName, quoteTotal, orderPaid } from './types';
-export const dayKey = (date: Date | string) =>
-  new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Australia/Brisbane',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(date));
+const dayFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Australia/Brisbane',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+export const dayKey = (date: Date | string) => dayFormatter.format(new Date(date));
 export function analytics(data: Data, now = new Date()) {
   const today = dayKey(now);
   const month = today.slice(0, 7);

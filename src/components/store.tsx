@@ -5,6 +5,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
   type ReactNode,
 } from 'react';
@@ -12,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { type Data, type Mutation } from '@/lib/types';
 import { applyDemoMutation, makeDemo, restoreDemoFollowUpSections } from '@/lib/demo';
 import { validateMutation } from '@/lib/validation';
+import { mergeLeadSave, optimisticLeadSave } from '@/lib/lead-save';
 type Context = {
   data: Data;
   demo: boolean;
@@ -28,6 +30,8 @@ type Context = {
   resetDemo: () => void;
 };
 const Store = createContext<Context | null>(null);
+type Actions = Pick<Context, 'mutate' | 'notify' | 'openLead' | 'busy'>;
+const ActionsStore = createContext<Actions | null>(null);
 export function Provider({
   initial,
   userId,
@@ -47,9 +51,11 @@ export function Provider({
   const router = useRouter();
   const dataRef = useRef(data);
   const lock = useRef(false);
-  useEffect(() => {
-    dataRef.current = data;
-  }, [data]);
+  const refreshVersion = useRef(0);
+  const commitData = useCallback((next: Data) => {
+    dataRef.current = next;
+    setData(next);
+  }, []);
   useEffect(() => {
     if (demo) {
       try {
@@ -59,7 +65,7 @@ export function Provider({
           if (saved.leads && saved.profiles && saved.settings) {
             const restored = restoreDemoFollowUpSections(saved);
             localStorage.setItem('monza-demo-v1', JSON.stringify(restored));
-            setData(restored);
+            commitData(restored);
           }
         }
       } catch {
@@ -68,43 +74,51 @@ export function Provider({
     }
     const params = new URLSearchParams(window.location.search);
     if (params.get('lead')) setSelected(params.get('lead'));
-  }, [demo]);
+  }, [demo, commitData]);
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(''), 4200);
       return () => clearTimeout(timer);
     }
   }, [toast]);
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(
+    async (duringSave = false) => {
+      if (demo || (lock.current && !duringSave)) return;
+      const version = ++refreshVersion.current;
+      const response = await fetch('/api/crm', { cache: 'no-store' });
+      const body = await response.json();
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) router.push('/login');
+        throw new Error(body.error);
+      }
+      if (version === refreshVersion.current) commitData(body.data);
+    },
+    [demo, router, commitData],
+  );
+  useEffect(() => {
     if (demo) return;
-    const response = await fetch('/api/crm', { cache: 'no-store' });
-    const body = await response.json();
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) router.push('/login');
-      throw new Error(body.error);
-    }
-    setData(body.data);
-  }, [demo, router]);
+    const onFocus = () => {
+      if (!lock.current && document.visibilityState === 'visible') void refresh().catch(() => {});
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [demo, refresh]);
   const mutate = useCallback(
     async (m: Mutation) => {
       if (lock.current) throw new Error('Please wait for the current change to finish.');
       validateMutation(m);
       lock.current = true;
+      refreshVersion.current += 1;
       setBusy(true);
       const previous = dataRef.current;
+      let saved = false;
       try {
         if (demo) {
           const updated = applyDemoMutation(previous, m, userId);
           localStorage.setItem('monza-demo-v1', JSON.stringify(updated));
-          setData(updated);
+          commitData(updated);
         } else {
-          if (m.action === 'save' && m.table === 'leads' && m.id && m.values.stage_id)
-            setData((d) => ({
-              ...d,
-              leads: d.leads.map((l) =>
-                l.id === m.id ? { ...l, stage_id: String(m.values.stage_id) } : l,
-              ),
-            }));
+          commitData(optimisticLeadSave(previous, m, userId, new Date().toISOString()));
           const response = await fetch('/api/crm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -112,7 +126,9 @@ export function Provider({
           });
           const body = await response.json();
           if (!response.ok) throw new Error(body.error);
-          await refresh();
+          saved = true;
+          if (body.leadPatch) commitData(mergeLeadSave(dataRef.current, body.leadPatch));
+          else await refresh(true);
         }
         setToast(
           m.action === 'convert'
@@ -122,59 +138,73 @@ export function Provider({
               : 'Changes saved.',
         );
       } catch (e) {
-        setData(previous);
+        if (saved) {
+          setToast(
+            'Saved, but the view could not refresh. Refresh the page to load the latest data.',
+          );
+          return;
+        }
+        commitData(previous);
         throw e;
       } finally {
         lock.current = false;
         setBusy(false);
       }
     },
-    [demo, refresh, userId],
+    [demo, refresh, userId, commitData],
   );
-  function openLead(id: string, t = 'Overview') {
+  const openLead = useCallback((id: string, t = 'Overview') => {
     setSelected(id);
     setTab(t);
     const url = new URL(window.location.href);
     url.searchParams.set('lead', id);
     window.history.replaceState(null, '', url);
-  }
-  function closeLead() {
+  }, []);
+  const closeLead = useCallback(() => {
     setSelected(null);
     const url = new URL(window.location.href);
     url.searchParams.delete('lead');
     window.history.replaceState(null, '', url);
-  }
-  function resetDemo() {
+  }, []);
+  const resetDemo = useCallback(() => {
     const next = makeDemo();
     localStorage.setItem('monza-demo-v1', JSON.stringify(next));
-    setData(next);
+    commitData(next);
     setToast('Demo restored to its starting point.');
-  }
+  }, [commitData]);
+  const value = useMemo(
+    () => ({
+      data,
+      demo,
+      userId,
+      busy,
+      mutate,
+      refresh,
+      notify: setToast,
+      openLead,
+      selected,
+      tab,
+      setTab,
+      closeLead,
+      resetDemo,
+    }),
+    [data, demo, userId, busy, mutate, refresh, openLead, selected, tab, closeLead, resetDemo],
+  );
+  const actions = useMemo(
+    () => ({ mutate, notify: setToast, openLead, busy }),
+    [mutate, openLead, busy],
+  );
   return (
-    <Store.Provider
-      value={{
-        data,
-        demo,
-        userId,
-        busy,
-        mutate,
-        refresh,
-        notify: setToast,
-        openLead,
-        selected,
-        tab,
-        setTab,
-        closeLead,
-        resetDemo,
-      }}
-    >
-      {children}
-      {toast && (
-        <div className="toast" role="status">
-          <span>✓</span>
-          {toast}
-        </div>
-      )}
+    <Store.Provider value={value}>
+      <ActionsStore.Provider value={actions}>
+        {children}
+        {toast && (
+          <div className="toast" role="status">
+            <span>✓</span>
+            {toast}
+          </div>
+        )}
+      </ActionsStore.Provider>
     </Store.Provider>
   );
 }
@@ -182,4 +212,10 @@ export function useCRM() {
   const ctx = useContext(Store);
   if (!ctx) throw new Error('CRM provider missing');
   return ctx;
+}
+
+export function useCRMActions() {
+  const actions = useContext(ActionsStore);
+  if (!actions) throw new Error('CRM provider missing');
+  return actions;
 }

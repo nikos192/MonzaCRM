@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { memo, useDeferredValue, useMemo, useState, type ReactNode } from 'react';
 import {
   Search,
   Plus,
@@ -27,7 +27,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { useCRM } from './store';
+import { useCRM, useCRMActions } from './store';
 import { Avatar, Badge, Button, Empty, Modal } from './ui';
 import {
   fullName,
@@ -35,12 +35,23 @@ import {
   money,
   quoteTotal,
   isLegacyFollowUpStage,
-  type Lead,
 } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { dayKey } from '@/lib/analytics';
-import { lastDialChange } from '@/lib/touchpoints';
-import { columnEntryTimes, compareColumnEntries } from '@/lib/pipeline';
+import { buildPipelineIndex, type PipelineCardData } from '@/lib/pipeline';
+const columnTimeFormatter = new Intl.DateTimeFormat('en-AU', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  timeZone: 'Australia/Brisbane',
+});
+const fullTimeFormatter = new Intl.DateTimeFormat('en-AU', {
+  dateStyle: 'full',
+  timeStyle: 'long',
+  timeZone: 'Australia/Brisbane',
+});
 export function LeadList({
   onNew,
   onImport,
@@ -350,29 +361,62 @@ function TouchDial({
     </div>
   );
 }
-function PipelineCard({
-  lead,
-  enteredAt,
+const PipelineCard = memo(function PipelineCard({
+  card,
+  contactedStage,
   overlay = false,
 }: {
-  lead: Lead;
-  enteredAt: string;
+  card: PipelineCardData;
+  contactedStage?: string;
   overlay?: boolean;
 }) {
-  const { data, openLead, notify, mutate, busy } = useCRM();
-  const [updating, setUpdating] = useState<'call_step' | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: lead.id,
+    id: card.lead.id,
     disabled: overlay,
   });
-  const c = data.customers.find((c) => c.id === lead.customer_id),
-    v = data.vehicles.find((v) => v.id === lead.vehicle_id),
-    q = data.quotes.find((q) => q.lead_id === lead.id),
-    p = data.profiles.find((p) => p.id === lead.handled_by),
-    f = data.follow_ups
-      .filter((f) => f.lead_id === lead.id && f.status === 'Open')
-      .sort((a, b) => a.due_at.localeCompare(b.due_at))[0];
+  const dragHandle = useMemo(
+    () => (
+      <button
+        className="drag-handle"
+        {...listeners}
+        {...attributes}
+        aria-label={`Drag ${fullName(card.customer)}; use stage selector in lead for keyboard movement`}
+      >
+        <GripVertical size={14} />
+      </button>
+    ),
+    [listeners, attributes, card.customer],
+  );
+  return (
+    <article
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.35 : 1 }}
+      className={`kanban-card ${overlay ? 'drag-overlay' : ''}`}
+    >
+      <PipelineCardContent
+        card={card}
+        contactedStage={contactedStage}
+        overlay={overlay}
+        dragHandle={dragHandle}
+      />
+    </article>
+  );
+});
+const PipelineCardContent = memo(function PipelineCardContent({
+  card,
+  contactedStage,
+  overlay,
+  dragHandle,
+}: {
+  card: PipelineCardData;
+  contactedStage?: string;
+  overlay: boolean;
+  dragHandle: ReactNode;
+}) {
+  const { openLead, notify, mutate, busy } = useCRMActions();
+  const { lead, enteredAt, customer: c, vehicle: v, quote: q, profile: p, follow: f } = card;
+  const [updating, setUpdating] = useState<'call_step' | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const overdue = f && dayKey(f.due_at) < dayKey(new Date());
   async function copy(value: string | undefined) {
     if (!value) {
@@ -390,7 +434,6 @@ function PipelineCard({
     setUpdating(field);
     try {
       const contacted = field === 'call_step' && value > (lead.call_step ?? 0);
-      const contactedStage = data.pipeline_stages.find((stage) => stage.name === 'Contacted');
       await mutate({
         action: 'save',
         table: 'leads',
@@ -399,7 +442,7 @@ function PipelineCard({
           [field]: value,
           ...(contacted ? { last_contacted: new Date().toISOString() } : {}),
           ...(contacted && !lead.last_contacted && contactedStage
-            ? { stage_id: contactedStage.id }
+            ? { stage_id: contactedStage }
             : {}),
         },
       });
@@ -410,11 +453,7 @@ function PipelineCard({
     }
   }
   return (
-    <article
-      ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.35 : 1 }}
-      className={`kanban-card ${overlay ? 'drag-overlay' : ''}`}
-    >
+    <>
       <div className="kanban-top">
         <span className="source-label">{lead.source}</span>
         <div>
@@ -429,14 +468,7 @@ function PipelineCard({
               <Trash2 size={13} />
             </button>
           )}
-          <button
-            className="drag-handle"
-            {...listeners}
-            {...attributes}
-            aria-label={`Drag ${fullName(c)}; use stage selector in lead for keyboard movement`}
-          >
-            <GripVertical size={14} />
-          </button>
+          {dragHandle}
         </div>
       </div>
       <button className="kanban-name" onClick={() => openLead(lead.id)}>
@@ -446,22 +478,8 @@ function PipelineCard({
       <p className="kanban-vehicle">{vehicleName(v)}</p>
       <div className="kanban-column-time">
         <span>In column since</span>
-        <time
-          dateTime={enteredAt}
-          title={new Date(enteredAt).toLocaleString('en-AU', {
-            dateStyle: 'full',
-            timeStyle: 'long',
-            timeZone: 'Australia/Brisbane',
-          })}
-        >
-          {new Date(enteredAt).toLocaleString('en-AU', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            timeZone: 'Australia/Brisbane',
-          })}
+        <time dateTime={enteredAt} title={fullTimeFormatter.format(new Date(enteredAt))}>
+          {columnTimeFormatter.format(new Date(enteredAt))}
         </time>
       </div>
       <div className="kanban-quote">
@@ -488,8 +506,8 @@ function PipelineCard({
           label="Calls"
           tone="call"
           value={lead.call_step ?? 0}
-          lastChanged={lastDialChange(data.activity_logs, lead.id, 'call_step')}
-          disabled={overlay || updating !== null}
+          lastChanged={card.lastCall}
+          disabled={overlay || busy || updating !== null}
           onChange={(value) => updateDial('call_step', value)}
         />
       </div>
@@ -547,29 +565,28 @@ function PipelineCard({
           </div>
         </Modal>
       )}
-    </article>
+    </>
   );
-}
-function Column({
+});
+const Column = memo(function Column({
   id,
   name,
   colour,
   leads,
-  enteredAt,
+  contactedStage,
   onNew,
 }: {
   id: string;
   name: string;
   colour: string;
-  leads: Lead[];
-  enteredAt: Map<string, string>;
+  leads: PipelineCardData[];
+  contactedStage?: string;
   onNew: () => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id });
-  const { data } = useCRM();
-  const total = leads.reduce(
-    (sum, l) => sum + quoteTotal(data.quotes.find((q) => q.lead_id === l.id)),
-    0,
+  const total = useMemo(
+    () => leads.reduce((sum, card) => sum + quoteTotal(card.quote), 0),
+    [leads],
   );
   return (
     <section
@@ -590,13 +607,13 @@ function Column({
       <div className="column-value">{money(total)}</div>
       <div className="kanban-cards">
         {leads.map((l) => (
-          <PipelineCard lead={l} enteredAt={enteredAt.get(l.id) ?? l.created_at} key={l.id} />
+          <PipelineCard card={l} contactedStage={contactedStage} key={l.lead.id} />
         ))}
         {!leads.length && <div className="drop-empty">Drop a lead here</div>}
       </div>
     </section>
   );
-}
+});
 export function Pipeline({
   onNew,
   navigate,
@@ -605,10 +622,7 @@ export function Pipeline({
   navigate: (v: string) => void;
 }) {
   const { data, mutate, notify } = useCRM();
-  const enteredAt = useMemo(
-    () => columnEntryTimes(data.leads, data.activity_logs),
-    [data.leads, data.activity_logs],
-  );
+  const index = useMemo(() => buildPipelineIndex(data), [data]);
   const [query, setQuery] = useState('');
   const [owner, setOwner] = useState('all');
   const [active, setActive] = useState<string | null>(null);
@@ -617,17 +631,27 @@ export function Pipeline({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
   );
-  const leads = data.leads.filter(
-    (l) =>
-      !l.archived_at &&
-      (owner === 'all' || l.handled_by === owner) &&
-      `${fullName(data.customers.find((c) => c.id === l.customer_id))} ${vehicleName(data.vehicles.find((v) => v.id === l.vehicle_id))}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
-  );
+  const deferredQuery = useDeferredValue(query);
+  const { leads, columns } = useMemo(() => {
+    const search = deferredQuery.trim().toLowerCase();
+    const leads = index.sorted.filter(
+      (card) => (owner === 'all' || card.lead.handled_by === owner) && card.search.includes(search),
+    );
+    const groups = new Map<string, PipelineCardData[]>();
+    for (const card of leads) {
+      const group = groups.get(card.lead.stage_id);
+      if (group) group.push(card);
+      else groups.set(card.lead.stage_id, [card]);
+    }
+    const columns = [...data.pipeline_stages]
+      .sort((a, b) => a.position - b.position)
+      .filter((stage) => !isLegacyFollowUpStage(stage.name) && (terminal || !stage.is_terminal))
+      .map((stage) => ({ stage, cards: groups.get(stage.id) ?? [] }));
+    return { leads, columns };
+  }, [index, deferredQuery, owner, terminal, data.pipeline_stages]);
   async function drop(e: DragEndEvent) {
     setActive(null);
-    const lead = data.leads.find((l) => l.id === e.active.id);
+    const lead = index.cards.get(String(e.active.id))?.lead;
     if (!lead || !e.over || lead.stage_id === e.over.id) return;
     try {
       await mutate({
@@ -690,35 +714,30 @@ export function Pipeline({
         </Button>
       </div>
       <DndContext
+        id="lead-pipeline"
         sensors={sensors}
         onDragStart={(e) => setActive(String(e.active.id))}
         onDragCancel={() => setActive(null)}
         onDragEnd={drop}
       >
         <div className="kanban-board">
-          {[...data.pipeline_stages]
-            .sort((a, b) => a.position - b.position)
-            .filter((s) => !isLegacyFollowUpStage(s.name))
-            .filter((s) => terminal || !s.is_terminal)
-            .map((s) => (
-              <Column
-                key={s.id}
-                id={s.id}
-                name={s.name}
-                colour={s.colour}
-                enteredAt={enteredAt}
-                leads={leads
-                  .filter((l) => l.stage_id === s.id)
-                  .sort((a, b) => compareColumnEntries(a, b, enteredAt))}
-                onNew={onNew}
-              />
-            ))}
+          {columns.map(({ stage, cards }) => (
+            <Column
+              key={stage.id}
+              id={stage.id}
+              name={stage.name}
+              colour={stage.colour}
+              leads={cards}
+              contactedStage={index.contactedStage}
+              onNew={onNew}
+            />
+          ))}
         </div>
         <DragOverlay>
-          {active && data.leads.find((l) => l.id === active) ? (
+          {active && index.cards.has(active) ? (
             <PipelineCard
-              lead={data.leads.find((l) => l.id === active)!}
-              enteredAt={enteredAt.get(active)!}
+              card={index.cards.get(active)!}
+              contactedStage={index.contactedStage}
               overlay
             />
           ) : null}
