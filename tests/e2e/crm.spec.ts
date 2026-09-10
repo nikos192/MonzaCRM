@@ -154,7 +154,8 @@ test('pipeline drag persists a stage change and global search opens the record',
     .locator('.kanban-column-time time')
     .getAttribute('datetime');
   expect(enteredAt).toBeTruthy();
-  await touchpointCard.getByRole('button', { name: 'Set calls to 3 of 3' }).click();
+  await touchpointCard.getByRole('button', { name: 'Record call 2 of 3' }).click();
+  await touchpointCard.getByRole('button', { name: 'Record call 3 of 3' }).click();
   await expect(touchpointCard.locator('.kanban-column-time time')).toHaveAttribute(
     'datetime',
     enteredAt!,
@@ -296,4 +297,27 @@ test('a large pipeline filters by customer and owner without changing stored pro
   );
   await page.getByLabel('Search pipeline').fill('');
   await expect(page.locator('.kanban-card')).toHaveCount(70);
+});
+
+test('the whole Calls dial advances one step per click and never resets at three', async ({
+  page,
+}) => {
+  await page.goto('/demo?view=pipeline');
+  const card = page
+    .locator('.kanban-card')
+    .filter({ has: page.getByRole('button', { name: 'James Mitchell', exact: true }) });
+  await expect(card.locator('svg[aria-label="Calls: 0 of 3 complete"]')).toBeVisible();
+  for (const [index, position] of [
+    { x: 28, y: 9 },
+    { x: 19, y: 29 },
+    { x: 9, y: 9 },
+  ].entries()) {
+    await card.getByRole('button', { name: `Record call ${index + 1} of 3` }).click({ position });
+    await expect(card.locator(`svg[aria-label="Calls: ${index + 1} of 3 complete"]`)).toBeVisible();
+  }
+  await expect(card.getByRole('button', { name: 'Calls: 3 of 3 recorded' })).toBeDisabled();
+  await expect(card.locator('.dial-timestamp time')).toBeVisible();
+  await page.reload();
+  await expect(card.locator('svg[aria-label="Calls: 3 of 3 complete"]')).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Calls: 3 of 3 recorded' })).toBeDisabled();
 });

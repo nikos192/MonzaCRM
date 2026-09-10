@@ -29,13 +29,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useCRM, useCRMActions } from './store';
 import { Avatar, Badge, Button, Empty, Modal } from './ui';
-import {
-  fullName,
-  vehicleName,
-  money,
-  quoteTotal,
-  isLegacyFollowUpStage,
-} from '@/lib/types';
+import { fullName, vehicleName, money, quoteTotal, isLegacyFollowUpStage } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { dayKey } from '@/lib/analytics';
 import { buildPipelineIndex, type PipelineCardData } from '@/lib/pipeline';
@@ -291,7 +285,7 @@ function TouchDial({
   lastChanged?: string;
   onChange: (value: number) => void;
 }) {
-  const change = (step: number) => onChange(value === step ? step - 1 : step);
+  const complete = value >= 3;
   return (
     <div className={`touch-dial ${tone}`}>
       <div className="dial-control">
@@ -312,17 +306,14 @@ function TouchDial({
             {value}/3
           </text>
         </svg>
-        {[1, 2, 3].map((step) => (
-          <button
-            key={step}
-            className={`dial-button step-${step}`}
-            type="button"
-            disabled={disabled}
-            aria-label={`Set ${label.toLowerCase()} to ${step} of 3`}
-            aria-pressed={step <= value}
-            onClick={() => change(step)}
-          />
-        ))}
+        <button
+          className="dial-button"
+          type="button"
+          disabled={disabled || complete}
+          aria-label={complete ? `${label}: 3 of 3 recorded` : `Record call ${value + 1} of 3`}
+          title={complete ? 'All 3 calls recorded' : `Record call ${value + 1} of 3`}
+          onClick={() => onChange(Math.min(value + 1, 3))}
+        />
       </div>
       <span className="dial-label">{label}</span>
       <div className="dial-timestamp" aria-live="polite">
